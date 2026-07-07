@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+
+  businesses Business[]
+}
+
+model Business {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  // --- Business Discovery (only name + industry required) ---
+  name              String
+  industry          String
+  category          String?
+  location          String?
+  employees         String?
+  yearsInBusiness   String?
+  products          String? // free text, comma separated
+  services          String? // free text, comma separated
+  avgDailySales     Float?
+  avgMonthlyRevenue Float?
+
+  // --- Digital presence ---
+  googleBusiness String?
+  instagram      String?
+  facebook       String?
+  website        String?
+  whatsappBiz    String?
+  linkedin       String?
+
+  goals              String?
+  discoveryComplete  Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  customers        Customer[]
+  sales            Sale[]
+  products_rel     Product[]
+  assessment       Assessment?
+  missions         Mission[]
+  insights         Insight[]
+  automationDrafts AutomationDraft[]
+  chatMessages     ChatMessage[]
+  memoryEvents     MemoryEvent[]
+  uploadedCustomerFiles UploadedCustomerFile[]
+  uploadedSalesFiles    UploadedSalesFile[]
+  customerAnalytics     CustomerAnalytics?
+  salesAnalytics        SalesAnalytics?
+  generatedReports      GeneratedReport[]
+  dashboardMetrics      DashboardMetrics?
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  name       String
+  price      Float?
+  unitsSold  Int?     @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model Customer {
+  id             String    @id @default(cuid())
+  businessId     String
+  business       Business  @relation(fields: [businessId], references: [id])
+  name           String
+  phone          String?
+  email          String?
+  city           String?
+  notes          String?
+  lifetimeValue  Float     @default(0)
+  lastPurchaseAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  sales Sale[]
+}
+
+model Sale {
+  id              String    @id @default(cuid())
+  businessId      String
+  business        Business  @relation(fields: [businessId], references: [id])
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  amount          Float
+  product         String?
+  productCategory String?
+  quantity        Int?      @default(1)
+  paymentMethod   String?
+  notes           String?
+  date            DateTime  @default(now())
+}
+
+model Assessment {
+  id                     String   @id @default(cuid())
+  businessId             String   @unique
+  business               Business @relation(fields: [businessId], references: [id])
+  hasEnoughData          Boolean  @default(false)
+  readinessScore         Int?
+  confidenceScore        Int?
+  digitalMaturity        Int?
+  growthScore            Int?
+  missingAssetsJson      String // JSON string array
+  strengthsJson          String // JSON string array
+  weaknessesJson         String // JSON string array
+  recommendedFirstAction String?
+  roadmapJson            String // JSON string array of {step, why}
+  missingInfoExplanation String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model Mission {
+  id          String    @id @default(cuid())
+  businessId  String
+  business    Business  @relation(fields: [businessId], references: [id])
+  title       String
+  description String
+  reasoning   String
+  priority    String // high | medium | low
+  status      String    @default("pending") // pending | done | dismissed
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model Insight {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  category   String // revenue | digital | customers | competitive
+  narrative  String
+  createdAt  DateTime @default(now())
+}
+
+model AutomationDraft {
+  id               String   @id @default(cuid())
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id])
+  type             String // whatsapp | email | reminder | task | followup
+  targetCustomerId String?
+  subject          String?
+  content          String
+  reasoning        String
+  status           String   @default("draft") // draft | approved | rejected | sent
+  createdAt        DateTime @default(now())
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  role       String // user | assistant
+  content    String
+  createdAt  DateTime @default(now())
+}
+
+model MemoryEvent {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  type       String // e.g. "discovery_updated", "csv_uploaded", "assessment_run"
+  summary    String
+  createdAt  DateTime @default(now())
+}
+
+model UploadedCustomerFile {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  fileName   String
+  rowCount   Int
+  createdAt  DateTime @default(now())
+}
+
+model UploadedSalesFile {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  fileName   String
+  rowCount   Int
+  createdAt  DateTime @default(now())
+}
+
+model CustomerAnalytics {
+  id         String   @id @default(cuid())
+  businessId String   @unique
+  business   Business @relation(fields: [businessId], references: [id])
+  dataJson   String // Detailed segments, CLV, churn, behavior, etc.
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model SalesAnalytics {
+  id         String   @id @default(cuid())
+  businessId String   @unique
+  business   Business @relation(fields: [businessId], references: [id])
+  dataJson   String // Revenue trends, seasonal demand, best/worst products
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model GeneratedReport {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  type       String   @default("customer_intelligence")
+  title      String
+  summary    String // Executive summary text
+  contentJson String // Full structured report details (JSON)
+  createdAt  DateTime @default(now())
+}
+
+model DashboardMetrics {
+  id         String   @id @default(cuid())
+  businessId String   @unique
+  business   Business @relation(fields: [businessId], references: [id])
+  metricsJson String // Consolidated dashboard cards + trend metrics
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
