@@ -48,7 +48,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Nexora backend running on http://localhost:${PORT}`);
   console.log(`AI (Gemini) enabled: ${isAiEnabled()}`);
 });
