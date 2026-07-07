@@ -75,3 +75,4 @@ out/
 dist/
 build/
 .vercel
+.env*
