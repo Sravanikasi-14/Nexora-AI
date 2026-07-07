@@ -16,21 +16,15 @@ const app = express();
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-
-    const allowedOrigins = [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      process.env.CLIENT_ORIGIN,
-    ];
-
     if (
-      allowedOrigins.includes(origin) ||
-      origin.endsWith(".vercel.app")
+      origin === "http://localhost:3000" ||
+      origin === "http://localhost:3001" ||
+      origin.endsWith(".vercel.app") ||
+      origin === process.env.CLIENT_ORIGIN
     ) {
       return callback(null, true);
     }
-
-    return callback(new Error("Not allowed by CORS"));
+    return callback(null, false);
   },
   credentials: true,
 }));
