@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AuthedRequest, requireAuth } from "../middleware/auth";
 import { answerStrategyChat } from "../agents/strategyAgent";
+import { processAiRequest } from "../services/aiCore";
 
 const router = Router();
 router.use(requireAuth);
@@ -31,13 +32,26 @@ router.post("/ask", async (req: AuthedRequest, res) => {
     data: { businessId: business.id, role: "user", content: parsed.data.question },
   });
 
-  const answer = await answerStrategyChat(business.id, parsed.data.question);
+  const useCore = req.query.useCore === "true" || req.body.useCore === true;
+  let answer: string;
+  let coreResponse = null;
+
+  if (useCore) {
+    const resPayload = await processAiRequest(business.id, parsed.data.question);
+    answer = resPayload.text;
+    coreResponse = resPayload;
+  } else {
+    answer = await answerStrategyChat(business.id, parsed.data.question);
+  }
 
   const saved = await prisma.chatMessage.create({
     data: { businessId: business.id, role: "assistant", content: answer },
   });
 
-  res.json({ message: saved });
+  res.json({ 
+    message: saved,
+    aiCore: coreResponse
+  });
 });
 
 export default router;

@@ -40,6 +40,10 @@ export function useSession(opts: { requireBusiness?: boolean } = {}) {
           setBusinessId(null);
         }
       } catch {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("nexora_token");
+          localStorage.removeItem("nexora_business_id");
+        }
         router.replace("/login");
         return;
       } finally {
@@ -49,5 +53,5 @@ export function useSession(opts: { requireBusiness?: boolean } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { business, businessId: business?.id || getBusinessId(), loading };
+  return { business, businessId: loading ? null : (business?.id || getBusinessId()), loading };
 }

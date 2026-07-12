@@ -6,6 +6,76 @@ import { useSession } from "@/lib/useSession";
 import { api } from "@/lib/api";
 import { ChatMsg } from "@/lib/types";
 
+function parseBold(text: string): React.ReactNode[] {
+  const parts = text.split(/\*\*([^*]+)\*\*/g);
+  return parts.map((part, index) => {
+    if (index % 2 === 1) {
+      return <strong key={index} className="font-semibold text-accent">{part}</strong>;
+    }
+    return part;
+  });
+}
+
+function formatMessage(content: string): React.ReactNode {
+  const lines = content.split("\n");
+  let inList = false;
+  const listItems: React.ReactNode[] = [];
+  const elements: React.ReactNode[] = [];
+
+  const flushList = (key: string) => {
+    if (listItems.length > 0) {
+      elements.push(
+        <ul key={`list-${key}`} className="list-disc pl-5 my-2 flex flex-col gap-1">
+          {[...listItems]}
+        </ul>
+      );
+      listItems.length = 0;
+      inList = false;
+    }
+  };
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    
+    if (trimmed.startsWith("### ")) {
+      flushList(`flush-${idx}`);
+      elements.push(
+        <h3 key={idx} className="font-display font-semibold text-base mt-4 mb-2 text-ink first:mt-1">
+          {trimmed.replace("### ", "")}
+        </h3>
+      );
+    } else if (trimmed.startsWith("## ")) {
+      flushList(`flush-${idx}`);
+      elements.push(
+        <h2 key={idx} className="font-display font-semibold text-lg mt-5 mb-2 text-ink first:mt-1">
+          {trimmed.replace("## ", "")}
+        </h2>
+      );
+    } else if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
+      inList = true;
+      const cleanLine = trimmed.replace(/^[•-]\s*/, "");
+      listItems.push(
+        <li key={`li-${idx}`} className="text-ink text-sm leading-relaxed">
+          {parseBold(cleanLine)}
+        </li>
+      );
+    } else if (trimmed === "") {
+      flushList(`flush-${idx}`);
+      elements.push(<div key={idx} className="h-2" />);
+    } else {
+      flushList(`flush-${idx}`);
+      elements.push(
+        <p key={idx} className="text-sm text-ink leading-relaxed mb-1.5 last:mb-0">
+          {parseBold(trimmed)}
+        </p>
+      );
+    }
+  });
+
+  flushList("final");
+  return <div className="space-y-1">{elements}</div>;
+}
+
 const SUGGESTIONS = [
   "Who should I call today?",
   "Why are sales dropping?",
@@ -65,7 +135,7 @@ export default function ChatPage() {
           {messages.map((m) => (
             <div key={m.id} className={`max-w-[80%] ${m.role === "user" ? "self-end" : "self-start"}`}>
               <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "bg-accent text-white" : "bg-surface2 border border-border"}`}>
-                {m.content}
+                {m.role === "user" ? m.content : formatMessage(m.content)}
               </div>
             </div>
           ))}

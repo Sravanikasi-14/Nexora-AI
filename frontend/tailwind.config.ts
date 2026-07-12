@@ -4,16 +4,16 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        base: "#0A0E12",
-        surface: "#12171D",
-        surface2: "#181F27",
-        border: "#232C36",
-        muted: "#8A97A5",
-        ink: "#E9EFF5",
-        accent: "#4F8CFF",
-        accent2: "#2FD6A8",
-        warn: "#F5B44D",
-        danger: "#F0655A",
+        base: "var(--base)",
+        surface: "var(--surface)",
+        surface2: "var(--surface2)",
+        border: "var(--border)",
+        muted: "var(--muted)",
+        ink: "var(--ink)",
+        accent: "var(--accent)",
+        accent2: "var(--accent2)",
+        warn: "var(--warn)",
+        danger: "var(--danger)",
       },
       fontFamily: {
         display: ["var(--font-display)", "sans-serif"],
