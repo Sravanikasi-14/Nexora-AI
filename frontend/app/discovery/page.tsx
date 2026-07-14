@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api, setBusinessId, ApiError } from "@/lib/api";
 import { Business } from "@/lib/types";
 
@@ -48,8 +48,11 @@ const EMPTY: FormState = {
 
 const STEPS = ["Basics", "About the business", "Digital presence", "Import your data", "Goals"];
 
-export default function DiscoveryPage() {
+function DiscoveryPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
+
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +70,7 @@ export default function DiscoveryPage() {
       try {
         const res = await api.get<{ business: Business | null }>("/api/business/me");
         if (res.business) {
-          if (res.business.discoveryComplete) {
+          if (res.business.discoveryComplete && !isDemo) {
             router.replace("/assessment");
             return;
           }
@@ -93,12 +96,20 @@ export default function DiscoveryPage() {
           });
           setBusinessId(res.business.id);
         }
+      } catch (err) {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("nexora_token");
+          localStorage.removeItem("nexora_business_id");
+          localStorage.removeItem("nexora_user");
+        }
+        router.replace("/login");
+        return;
       } finally {
         setChecking(false);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isDemo]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -191,6 +202,19 @@ export default function DiscoveryPage() {
           </p>
         </div>
 
+        {/* Demo walkthrough banner */}
+        {isDemo && (
+          <div className="mb-6 bg-accent/15 border border-accent/25 rounded-2xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <span className="text-xl">💡</span>
+            <div>
+              <h4 className="font-semibold text-ink text-xs">Demo walkthrough</h4>
+              <p className="text-muted text-[11px] mt-0.5">
+                These answers are pre-filled from your real seeded business. Feel free to edit anything, then click through the steps to continue.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 mb-8">
           {STEPS.map((s, i) => (
             <div key={s} className="flex-1">
@@ -257,15 +281,12 @@ export default function DiscoveryPage() {
 
           {step === 2 && (
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted -mt-1 mb-1">
-                Add links or handles for any channels you have. Skip anything you don&apos;t.
-              </p>
               {[
-                ["googleBusiness", "Google Business Profile"],
-                ["instagram", "Instagram"],
-                ["facebook", "Facebook"],
-                ["website", "Website"],
-                ["whatsappBiz", "WhatsApp Business"],
+                ["googleBusiness", "Google Business Profile name"],
+                ["instagram", "Instagram handle"],
+                ["facebook", "Facebook page name"],
+                ["website", "Website URL"],
+                ["whatsappBiz", "WhatsApp Business phone number"],
                 ["linkedin", "LinkedIn"],
               ].map(([key, label]) => (
                 <div key={key}>
@@ -353,5 +374,13 @@ export default function DiscoveryPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DiscoveryPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-base flex items-center justify-center text-muted">Loading…</div>}>
+      <DiscoveryPageContent />
+    </Suspense>
   );
 }

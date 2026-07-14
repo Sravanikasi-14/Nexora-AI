@@ -24,7 +24,11 @@ export function useSession(opts: { requireBusiness?: boolean } = {}) {
 
     (async () => {
       try {
-        const res = await api.get<{ business: Business | null }>("/api/business/me");
+        const res = await api.get<{ business: Business | null; user?: { passwordSetupRequired: boolean } }>("/api/business/me");
+        if (res.user?.passwordSetupRequired) {
+          router.replace("/setup-password");
+          return;
+        }
         if (!res.business && opts.requireBusiness) {
           router.replace("/discovery");
           return;
@@ -43,6 +47,7 @@ export function useSession(opts: { requireBusiness?: boolean } = {}) {
         if (typeof window !== "undefined") {
           localStorage.removeItem("nexora_token");
           localStorage.removeItem("nexora_business_id");
+          localStorage.removeItem("nexora_user");
         }
         router.replace("/login");
         return;

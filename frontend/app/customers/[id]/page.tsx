@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import { useSession } from "@/lib/useSession";
 import { api, ApiError } from "@/lib/api";
 import { Customer } from "@/lib/types";
 
 export default function CustomerDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { businessId, loading: sessionLoading } = useSession({ requireBusiness: true });
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -18,6 +20,12 @@ export default function CustomerDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAddPurchaseModal, setShowAddPurchaseModal] = useState(false);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
+
+  // Win-Back drafting states
+  const [drafting, setDrafting] = useState(false);
+  const [generatedDraft, setGeneratedDraft] = useState<any>(null);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [savingApproval, setSavingApproval] = useState(false);
 
   // Edit Customer Form State
   const [editForm, setEditForm] = useState({
@@ -39,15 +47,90 @@ export default function CustomerDetailPage() {
     notes: "",
   });
 
-  useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("nexora_token") : null;
-    if (!token) {
-      router.replace("/login");
-      return;
+  async function handleDraftWinBackMessage() {
+    setDrafting(true);
+    try {
+      const res = await api.post<{ draft: any }>("/api/automation/draft", {
+        customerId: params.id,
+        type: "whatsapp",
+      });
+      setGeneratedDraft(res.draft);
+      setShowDraftModal(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to generate win-back draft");
+    } finally {
+      setDrafting(false);
     }
-    fetchCustomerData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id]);
+  }
+
+  async function handleApproveDraft() {
+    if (!generatedDraft) return;
+    setSavingApproval(true);
+    try {
+      await api.patch(`/api/automation/${generatedDraft.id}`, { status: "approved" });
+      alert("✓ Draft successfully approved and saved!");
+      setShowDraftModal(false);
+      setGeneratedDraft(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to approve draft");
+    } finally {
+      setSavingApproval(false);
+    }
+  }
+
+  async function handleDiscardDraft() {
+    if (!generatedDraft) return;
+    setSavingApproval(true);
+    try {
+      await api.patch(`/api/automation/${generatedDraft.id}`, { status: "rejected" });
+      setShowDraftModal(false);
+      setGeneratedDraft(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to reject draft");
+    } finally {
+      setSavingApproval(false);
+    }
+  }
+
+  function getHighlightedContent(content: string) {
+    if (!customer) return content;
+    const firstName = customer.name.split(" ")[0];
+    const namePart = customer.name;
+    const ltvStr = customer.lifetimeValue.toString();
+    const ltvFormatted = customer.lifetimeValue.toLocaleString();
+    const daysStr = daysSinceLastPurchase?.toString() || "0";
+
+    const escapeHtml = (text: string) => {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+
+    let html = escapeHtml(content);
+
+    // Highlight Name (full name or first name)
+    const nameRegex = new RegExp(`\\b(${escapeHtml(namePart)}|${escapeHtml(firstName)})\\b`, "gi");
+    html = html.replace(nameRegex, '<span class="bg-accent/20 border-b-2 border-accent px-1 font-semibold text-accent" title="Fact: Customer Name">$1</span>');
+
+    // Highlight Lifetime Value
+    const ltvRegex = new RegExp(`(₹\\s*${escapeHtml(ltvFormatted)}|₹\\s*${escapeHtml(ltvStr)}|\\b${escapeHtml(ltvStr)}\\b)`, "g");
+    html = html.replace(ltvRegex, '<span class="bg-emerald-500/20 border-b-2 border-emerald-500 px-1 font-semibold text-emerald-600" title="Fact: Lifetime Value">$1</span>');
+
+    // Highlight days
+    const daysRegex = new RegExp(`(\\b${escapeHtml(daysStr)}\\b\\s*days|\\b${escapeHtml(daysStr)}\\b)`, "g");
+    html = html.replace(daysRegex, '<span class="bg-amber-500/20 border-b-2 border-amber-500 px-1 font-semibold text-amber-600" title="Fact: Inactivity Gap">$1</span>');
+
+    return <div dangerouslySetInnerHTML={{ __html: html }} className="text-sm leading-relaxed whitespace-pre-line text-ink" />;
+  }
+
+  useEffect(() => {
+    if (businessId) {
+      fetchCustomerData();
+    }
+  }, [params.id, businessId]);
 
   function fetchCustomerData() {
     setLoading(true);
@@ -167,12 +250,16 @@ export default function CustomerDetailPage() {
     }
   }
 
-  if (loading) return <AppShell><div className="text-muted">Loading Customer CRM profile…</div></AppShell>;
+  if (sessionLoading || loading) return <AppShell><div className="text-muted">Loading Customer CRM profile…</div></AppShell>;
   if (!customer) return <AppShell><div className="text-danger">Customer not found.</div></AppShell>;
 
   const inactive = customer.lastPurchaseAt
     ? Date.now() - new Date(customer.lastPurchaseAt).getTime() > 60 * 86400000
     : false;
+
+  const daysSinceLastPurchase = customer.lastPurchaseAt
+    ? Math.floor((Date.now() - new Date(customer.lastPurchaseAt).getTime()) / 86400000)
+    : null;
 
   // Segment calculation
   let segmentName = "Churned";
@@ -205,11 +292,27 @@ export default function CustomerDetailPage() {
           <Link href="/customers" className="text-xs text-accent hover:underline block mb-1">
             ← Back to Customer Analystics
           </Link>
-          <h1 className="font-display text-2xl font-semibold mb-1">{customer.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="font-display text-2xl font-semibold mb-1">{customer.name}</h1>
+            {inactive && (
+              <span className="pill bg-danger/10 text-danger border border-danger/20 font-semibold text-xs py-0.5 px-2 animate-pulse">
+                ⚠️ At risk — hasn't returned
+              </span>
+            )}
+          </div>
           <p className="text-muted text-sm font-medium">CRM Profile & Timeline</p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {inactive && (
+            <button
+              className="btn-primary text-xs font-semibold flex items-center gap-1.5"
+              onClick={handleDraftWinBackMessage}
+              disabled={drafting}
+            >
+              {drafting ? "Drafting Win-back..." : "💬 Draft a win-back message"}
+            </button>
+          )}
           <button className="btn-secondary text-xs" onClick={() => setShowAddPurchaseModal(true)}>
             + Add Purchase
           </button>
@@ -223,7 +326,7 @@ export default function CustomerDetailPage() {
       </div>
 
       {/* Profile Overview Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         <div className="card p-5">
           <p className="text-xl font-display font-semibold text-accent">₹{customer.lifetimeValue.toLocaleString()}</p>
           <p className="text-xs text-muted mt-1">Lifetime Value (CLV)</p>
@@ -243,6 +346,12 @@ export default function CustomerDetailPage() {
         <div className="card p-5">
           <p className={`text-lg font-semibold ${riskColor}`}>{riskLabel} ({riskScore})</p>
           <p className="text-xs text-muted mt-1.5">Churn Risk</p>
+        </div>
+        <div className="card p-5">
+          <p className={`text-xl font-display font-semibold ${inactive ? "text-danger" : "text-ink"}`}>
+            {daysSinceLastPurchase !== null ? `${daysSinceLastPurchase} days` : "Never"}
+          </p>
+          <p className="text-xs text-muted mt-1">Days Since Last Purchase</p>
         </div>
       </div>
 
@@ -533,6 +642,106 @@ export default function CustomerDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. AI WIN-BACK MESSAGE DRAFT MODAL */}
+      {showDraftModal && generatedDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="card w-full max-w-2xl p-6 relative flex flex-col gap-5 border border-border shadow-2xl bg-surface animate-in fade-in zoom-in duration-200">
+            <button
+              className="absolute top-4 right-4 text-muted hover:text-ink text-sm p-1 rounded-full hover:bg-surface2/50 transition-colors"
+              onClick={handleDiscardDraft}
+              disabled={savingApproval}
+            >
+              ✕
+            </button>
+            
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-accent to-purple-600 flex items-center justify-center font-bold text-white text-sm shrink-0 shadow-sm border border-accent/20">
+                ✨
+              </div>
+              <div>
+                <h2 className="font-display text-lg font-semibold text-ink leading-tight">
+                  Nexora Outreach Draft
+                </h2>
+                <p className="text-muted text-xs">
+                  Grounded customer outreach drafted via Google Gemini.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-5 gap-4">
+              {/* Draft Output Box */}
+              <div className="md:col-span-3 flex flex-col gap-2">
+                <span className="text-[10px] text-muted uppercase tracking-wider font-semibold">Message Preview (WhatsApp)</span>
+                <div className="bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/20 relative flex flex-col gap-3 min-h-[140px] justify-between">
+                  <div className="absolute top-2.5 right-3 flex items-center gap-1 text-[10px] text-emerald-600 bg-emerald-500/10 py-0.5 px-2 rounded-full font-semibold">
+                    <span>🟢 Grounded</span>
+                  </div>
+                  <div className="mt-2">
+                    {getHighlightedContent(generatedDraft.content)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Grounding Facts List */}
+              <div className="md:col-span-2 flex flex-col gap-3 bg-surface2/30 p-4 rounded-xl border border-border">
+                <h4 className="text-xs font-semibold text-accent uppercase tracking-wider">CRM Grounding Data</h4>
+                <p className="text-[10px] text-muted leading-relaxed">
+                  These verified facts from the CRM database were highlighted in the draft to avoid AI hallucination.
+                </p>
+                <div className="flex flex-col gap-2.5 text-xs pt-1.5 border-t border-border/40">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted">👤 Name</span>
+                    <span className="font-semibold text-ink underline decoration-accent decoration-2">{customer.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted">💰 Lifetime Value</span>
+                    <span className="font-semibold text-emerald-600 underline decoration-emerald-500 decoration-2">₹{customer.lifetimeValue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted">📅 Last Purchase</span>
+                    <span className="font-semibold text-ink underline decoration-amber-500 decoration-2">
+                      {customer.lastPurchaseAt ? new Date(customer.lastPurchaseAt).toLocaleDateString() : "Never"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted">⏳ Inactivity Gap</span>
+                    <span className="font-semibold text-amber-600 underline decoration-amber-500 decoration-2">
+                      {daysSinceLastPurchase} days
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {generatedDraft.reasoning && (
+              <div className="border-l-2 border-accent/40 pl-3">
+                <span className="text-[10px] text-accent font-semibold uppercase tracking-wider block mb-0.5">Consultant Nudge</span>
+                <p className="text-xs text-muted leading-relaxed">{generatedDraft.reasoning}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 mt-2 pt-4 border-t border-border">
+              <button
+                type="button"
+                className="btn-secondary text-xs px-4 py-2"
+                onClick={handleDiscardDraft}
+                disabled={savingApproval}
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
+                onClick={handleApproveDraft}
+                disabled={savingApproval}
+              >
+                {savingApproval ? "Saving..." : "✓ Approve & Save"}
+              </button>
+            </div>
           </div>
         </div>
       )}

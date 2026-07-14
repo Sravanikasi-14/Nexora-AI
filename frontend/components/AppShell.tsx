@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { setToken, setBusinessId, setStoredUser, getStoredUser } from "@/lib/api";
+import { api, setToken, setBusinessId, setStoredUser, getStoredUser } from "@/lib/api";
 import {
   LayoutDashboard,
   Mic,
@@ -69,6 +69,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const user = mounted ? getStoredUser() : null;
 
   function logout() {
+    api.post("/api/auth/logout").catch(() => {});
     setToken(null);
     setBusinessId(null);
     setStoredUser(null);
@@ -105,7 +106,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Navigation Sidebar (Fixed drawer on mobile, static side panel on desktop) */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 w-64 bg-surface md:bg-transparent border-r border-border flex flex-col p-5 gap-6 z-50 transform transition-transform duration-300 ease-in-out md:transform-none md:shrink-0 ${
+        className={`fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 w-64 bg-surface border-r border-border flex flex-col p-5 gap-6 z-50 transform transition-transform duration-300 ease-in-out md:transform-none md:shrink-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
@@ -156,9 +157,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Sidebar Footer Controls */}
         <div className="mt-auto pt-4 border-t border-border flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <div className="px-1 min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{user?.name || "Business Owner"}</p>
-              <p className="text-xs text-muted truncate">{user?.email}</p>
+            <div className="px-1 min-w-0 flex-1 flex items-center gap-3">
+              {user?.avatar ? (
+                <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center font-bold text-white text-xs ${user.avatar}`}>
+                  {user.name?.charAt(0).toUpperCase()}
+                </div>
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-accent/20 text-accent shrink-0 flex items-center justify-center font-bold text-xs">
+                  {user?.name?.charAt(0).toUpperCase() || "B"}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate">{user?.name || "Business Owner"}</p>
+                <p className="text-xs text-muted truncate">{user?.email}</p>
+              </div>
             </div>
             <button
               onClick={toggleTheme}

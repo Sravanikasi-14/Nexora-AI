@@ -41,7 +41,7 @@ npm run dev
 You should see:
 ```
 Nexora backend running on http://localhost:4000
-AI (Anthropic) enabled: false
+AI (Gemini) enabled: false
 ```
 
 ### Optional — load demo data instantly
@@ -62,9 +62,9 @@ Password: demo1234
 This drops you straight into a live Dashboard/Customers/Insights/Missions — useful for debugging the UI without
 re-doing Discovery every time. Safe to re-run; it wipes and recreates only the `demo@nexora.ai` account.
 
-Optional — to upgrade AI Chat, Insights, and Automation drafts from deterministic templates to Claude-generated
-language (still strictly grounded in your data, never hallucinated numbers): open `backend/.env` and set
-`ANTHROPIC_API_KEY=sk-ant-...`, then restart `npm run dev`.
+Optional — to upgrade AI Chat, Insights, and Automation drafts from deterministic templates to Gemini-generated
+language (still strictly grounded in your data, never hallucinated numbers, processed via `backend/src/services/aiCore/geminiClient.ts` as the grounding and generation layer): open `backend/.env` and set
+`GEMINI_API_KEY=your_gemini_api_key`, then restart `npm run dev`.
 
 ### Terminal 2 — Frontend
 
@@ -117,8 +117,9 @@ npx prisma migrate reset # wipe and recreate the local database
   swap or extend any one (e.g. plug real Google Business / Instagram APIs into `digitalPresenceAgent`) without
   touching routes or frontend.
 - **No hallucination by design**: `growthAgent` and `digitalPresenceAgent` are deterministic, computed only from
-  what's in the database. Anthropic (`services/anthropic.ts`) is only used to *rephrase* those same grounded
+  what's in the database. Gemini (via `backend/src/services/gemini.ts` and `backend/src/services/aiCore/geminiClient.ts`) is only used to *rephrase* those same grounded
   facts into more natural language for Insights/Chat/Automation — and every call falls back to a template if no
   API key is set or the call fails.
 - **Automation never auto-sends**: `automationDraft` rows are always created with `status: "draft"`; the owner
   must explicitly approve in the UI.
+- **Model-agnostic grounding layer**: The intentRouter/planner/contextManager/contextRanker pipeline is decoupled from any specific model provider (such as Anthropic). The core orchestration, context retrieval, ranking, and planning logic function independently of the underlying LLM; `geminiClient.ts` is the only file that would need to change to swap providers.

@@ -77,7 +77,19 @@ export default function DashboardPage() {
   if (sessionLoading || loading) {
     return (
       <AppShell>
-        <div className="text-muted">Loading your dashboard…</div>
+        <div className="space-y-6 animate-pulse">
+          <div className="h-8 bg-surface2 rounded-xl w-1/3 mb-1" />
+          <div className="h-4 bg-surface2 rounded-xl w-1/4 mb-7" />
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="card p-4 h-24 bg-surface" />
+            ))}
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="card p-5 h-64 bg-surface" />
+            <div className="card p-5 h-64 bg-surface" />
+          </div>
+        </div>
       </AppShell>
     );
   }
@@ -85,7 +97,15 @@ export default function DashboardPage() {
   if (!data) {
     return (
       <AppShell>
-        <div className="text-danger">Could not load dashboard.</div>
+        <div className="card p-8 text-center flex flex-col items-center gap-4 max-w-md mx-auto mt-12">
+          <div className="w-12 h-12 rounded-full bg-danger/10 border border-danger/20 flex items-center justify-center text-danger text-xl">
+            ⚠️
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg mb-1">Failed to load Dashboard</h3>
+            <p className="text-sm text-muted">We encountered an error loading your business dashboard payload. Please try again later.</p>
+          </div>
+        </div>
       </AppShell>
     );
   }
@@ -93,14 +113,34 @@ export default function DashboardPage() {
   if (!data.hasEnoughData) {
     return (
       <AppShell>
-        <h1 className="font-display text-2xl font-semibold mb-4">Welcome to {data.businessName}</h1>
-        <div className="card p-6 max-w-2xl">
-          <p className="mb-4 leading-relaxed">{data.missingInfoExplanation}</p>
-          <p className="text-sm font-medium text-muted mb-2">Missing</p>
-          <ul className="flex flex-col gap-1 mb-5 text-sm">
-            {data.missingAssets?.map((m) => <li key={m}>• {m}</li>)}
-          </ul>
-          <Link href="/customers" className="btn-primary">Add customer data</Link>
+        <h1 className="font-display text-2xl font-semibold mb-1">Welcome to {data.businessName}</h1>
+        <p className="text-muted text-sm mb-7">Setup your business profile to activate Nexora AI insights.</p>
+        
+        <div className="card p-8 max-w-2xl text-center flex flex-col items-center gap-5 mx-auto mt-8">
+           <div className="w-16 h-16 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-3xl animate-float">
+             📊
+           </div>
+           <div>
+             <h2 className="text-xl font-semibold mb-2">Analyzing your Business Readiness</h2>
+             <p className="text-sm text-muted leading-relaxed max-w-md mx-auto">
+               {data.missingInfoExplanation || "Nexora needs a bit more data before it can generate your strategic growth roadmap and metrics dashboard."}
+             </p>
+           </div>
+
+           <div className="bg-[#12161A] p-4 rounded-xl border border-white/5 text-left w-full max-w-md">
+             <span className="text-[10px] text-accent uppercase font-bold tracking-wider block mb-2">Required items to unlock dashboard</span>
+             <ul className="flex flex-col gap-1.5 text-sm">
+               {data.missingAssets?.map((m) => (
+                 <li key={m} className="flex items-center gap-2 text-ink">
+                   <span className="text-accent">•</span> {m}
+                 </li>
+               )) || <li className="text-muted">No pending assets</li>}
+             </ul>
+           </div>
+
+           <Link href="/customers" className="btn-primary px-8 mt-2">
+             Configure & Add Customer Data
+           </Link>
         </div>
       </AppShell>
     );

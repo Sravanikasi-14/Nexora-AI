@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, getBusinessId } from "@/lib/api";
+import { useSession } from "@/lib/useSession";
+import { api } from "@/lib/api";
 import { AssessmentResult } from "@/lib/types";
 
 function ScoreRing({ label, value }: { label: string; value: number | null | undefined }) {
@@ -17,22 +18,15 @@ function ScoreRing({ label, value }: { label: string; value: number | null | und
 
 export default function AssessmentPage() {
   const router = useRouter();
+  const { businessId, loading: sessionLoading } = useSession({ requireBusiness: true });
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("nexora_token") : null;
-    if (!token) {
-      router.replace("/login");
-      return;
-    }
-    const businessId = getBusinessId();
-    if (!businessId) {
-      router.replace("/discovery");
-      return;
-    }
+    if (!businessId) return;
     (async () => {
+      setLoading(true);
       try {
         const res = await api.post<AssessmentResult>(`/api/assessment/${businessId}/run`);
         setResult(res);
@@ -42,10 +36,9 @@ export default function AssessmentPage() {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [businessId]);
 
-  if (loading) {
+  if (sessionLoading || loading) {
     return (
       <div className="min-h-screen bg-base flex flex-col items-center justify-center gap-3 text-muted">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />

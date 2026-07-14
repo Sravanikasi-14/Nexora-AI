@@ -13,8 +13,19 @@ router.use(requireAuth);
 
 // Get the current user's business (Nexora MVP: one business per user)
 router.get("/me", async (req: AuthedRequest, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+  if (!user) return res.status(404).json({ error: "User not found" });
+
   const business = await prisma.business.findFirst({ where: { userId: req.userId! }, orderBy: { createdAt: "desc" } });
-  res.json({ business });
+  res.json({
+    business,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      passwordSetupRequired: !user.password,
+    }
+  });
 });
 
 const discoverySchema = z.object({

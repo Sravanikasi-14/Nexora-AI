@@ -85,7 +85,7 @@ export async function generateInsights(
 ): Promise<InsightItem[]> {
   const base = templateInsights(growth, digital, customerAnalysis);
 
-  // Try to upgrade phrasing/synthesis with Claude/Gemini, strictly grounded in the
+  // Try to upgrade phrasing/synthesis with Gemini, strictly grounded in the
   // same computed facts. If unavailable or it fails, the deterministic
   // template insights above are returned as-is.
   const enhanced = await generateGroundedText({

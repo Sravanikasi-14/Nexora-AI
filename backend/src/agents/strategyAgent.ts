@@ -10,6 +10,7 @@ import { generateInsights } from "./insightAgent";
 import { memoryDigest, recordMemory } from "./memoryAgent";
 import { generateGroundedText } from "../services/gemini";
 import { runCustomerDataAnalysis } from "./customerDataAnalysisAgent";
+import { calculateMissionImpact } from "./revenueImpactAgent";
 
 async function loadBusinessContext(businessId: string) {
   const business = await prisma.business.findUniqueOrThrow({ where: { id: businessId } });
@@ -219,7 +220,14 @@ export async function getDashboardPayload(businessId: string) {
     revenueOpportunity: growth.revenueOpportunity,
     risks: growth.risks,
     businessStory: insights.map((i: { narrative: string }) => i.narrative),
-    todaysMissions: missions,
+    todaysMissions: missions.map((m) => {
+      const impact = calculateMissionImpact(m, sales, customers);
+      return {
+        ...m,
+        projectedImpact: impact.projectedImpact,
+        projectedImpactBasis: impact.projectedImpactBasis,
+      };
+    }),
     customerAlerts: growth.inactiveCustomers.map((c) => ({
       id: c.id,
       name: c.name,

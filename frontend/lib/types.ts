@@ -48,6 +48,8 @@ export interface Mission {
   priority: "high" | "medium" | "low" | string;
   status: string;
   createdAt: string;
+  projectedImpact?: number;
+  projectedImpactBasis?: string;
 }
 
 export interface DashboardPayload {

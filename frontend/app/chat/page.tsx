@@ -132,14 +132,41 @@ export default function ChatPage() {
               ))}
             </div>
           )}
-          {messages.map((m) => (
-            <div key={m.id} className={`max-w-[80%] ${m.role === "user" ? "self-end" : "self-start"}`}>
-              <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "bg-accent text-white" : "bg-surface2 border border-border"}`}>
-                {m.role === "user" ? m.content : formatMessage(m.content)}
+          {messages.map((m) => {
+            const isUser = m.role === "user";
+            return (
+              <div key={m.id} className={`flex gap-3 max-w-[85%] ${isUser ? "self-end flex-row-reverse" : "self-start flex-row"}`}>
+                {/* AI / User Avatar */}
+                {!isUser ? (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-accent to-purple-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-sm border border-accent/20 animate-scale-in">
+                    ✨
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-surface2 border border-border flex items-center justify-center font-semibold text-muted text-xs shrink-0">
+                    👤
+                  </div>
+                )}
+                {/* Message Bubble */}
+                <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm transition-all ${
+                  isUser 
+                    ? "bg-accent text-white rounded-tr-none" 
+                    : "bg-surface2 border border-border/80 text-ink rounded-tl-none"
+                }`}>
+                  {isUser ? m.content : formatMessage(m.content)}
+                </div>
+              </div>
+            );
+          })}
+          {sending && (
+            <div className="flex gap-3 self-start items-center">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-accent to-purple-600 flex items-center justify-center font-bold text-white text-xs shrink-0 animate-pulse">
+                ✨
+              </div>
+              <div className="bg-surface2 border border-border/80 text-muted text-xs rounded-2xl rounded-tl-none px-4 py-2.5 animate-pulse">
+                Nexora is thinking…
               </div>
             </div>
-          ))}
-          {sending && <div className="self-start text-muted text-sm">Nexora is thinking…</div>}
+          )}
           <div ref={bottomRef} />
         </div>
         <form

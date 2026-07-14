@@ -4,6 +4,8 @@ import { prisma } from "../lib/prisma";
 import { AuthedRequest, requireAuth } from "../middleware/auth";
 import { generateGroundedText } from "../services/gemini";
 import { analyzeGrowth } from "../agents/growthAgent";
+import { generateAutomationDraft } from "../agents/automationAgent";
+import { calculateMissionImpact } from "../agents/revenueImpactAgent";
 
 const router = Router();
 router.use(requireAuth);
@@ -27,7 +29,20 @@ router.get("/missions/:businessId", async (req: AuthedRequest, res) => {
   const business = await assertBusinessOwnership(req.params.businessId, req.userId!);
   if (!business) return res.status(404).json({ error: "Not found" });
   const missions = await prisma.mission.findMany({ where: { businessId: business.id }, orderBy: { createdAt: "desc" } });
-  res.json({ missions });
+
+  const customers = await prisma.customer.findMany({ where: { businessId: business.id } });
+  const sales = await prisma.sale.findMany({ where: { businessId: business.id } });
+
+  const enriched = missions.map((m) => {
+    const impact = calculateMissionImpact(m, sales, customers);
+    return {
+      ...m,
+      projectedImpact: impact.projectedImpact,
+      projectedImpactBasis: impact.projectedImpactBasis,
+    };
+  });
+
+  res.json({ missions: enriched });
 });
 
 const missionStatusSchema = z.object({ status: z.enum(["pending", "done", "dismissed"]) });
@@ -40,7 +55,18 @@ router.patch("/missions/:id", async (req: AuthedRequest, res) => {
   if (!mission || mission.business.userId !== req.userId) return res.status(404).json({ error: "Not found" });
 
   const updated = await prisma.mission.update({ where: { id: req.params.id }, data: { status: parsed.data.status } });
-  res.json({ mission: updated });
+
+  const customers = await prisma.customer.findMany({ where: { businessId: mission.businessId } });
+  const sales = await prisma.sale.findMany({ where: { businessId: mission.businessId } });
+  const impact = calculateMissionImpact(updated as any, sales, customers);
+
+  const enriched = {
+    ...updated,
+    projectedImpact: impact.projectedImpact,
+    projectedImpactBasis: impact.projectedImpactBasis,
+  };
+
+  res.json({ mission: enriched });
 });
 
 // ---------- Automation ----------
@@ -269,6 +295,64 @@ router.patch("/automation/:id", async (req: AuthedRequest, res) => {
     data: dataToUpdate,
   });
   res.json({ draft: updated });
+});
+
+const draftRequestSchema = z.object({
+  customerId: z.string(),
+  type: z.enum(["whatsapp", "email", "reminder", "task", "followup"]),
+});
+
+router.post("/automation/draft", async (req: AuthedRequest, res) => {
+  const parsed = draftRequestSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const { customerId, type } = parsed.data;
+
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    include: { business: true },
+  });
+
+  if (!customer) {
+    return res.status(404).json({ error: "Customer not found" });
+  }
+
+  if (customer.business.userId !== req.userId) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const now = Date.now();
+  const daysSinceLastPurchase = customer.lastPurchaseAt
+    ? Math.floor((now - new Date(customer.lastPurchaseAt).getTime()) / (24 * 60 * 60 * 1000))
+    : null;
+
+  const reason = `Hasn't purchased in ${daysSinceLastPurchase ?? 0} days. Lifetime value ₹${customer.lifetimeValue}.`;
+
+  try {
+    const generated = await generateAutomationDraft({
+      type,
+      customer,
+      businessName: customer.business.name,
+      reason,
+    });
+
+    const savedDraft = await prisma.automationDraft.create({
+      data: {
+        businessId: customer.businessId,
+        type,
+        targetCustomerId: customer.id,
+        subject: generated.subject,
+        content: generated.content,
+        reasoning: generated.reasoning,
+        status: "draft",
+      },
+    });
+
+    res.json({ draft: savedDraft });
+  } catch (err) {
+    console.error("[SingleAutomationDraft] Generation failed", err);
+    res.status(500).json({ error: "Failed to generate win-back draft" });
+  }
 });
 
 export default router;

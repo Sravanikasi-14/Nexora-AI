@@ -22,13 +22,21 @@ export function getBusinessId(): string | null {
   return localStorage.getItem("nexora_business_id");
 }
 
-export function getStoredUser(): { id: string; name: string; email: string } | null {
+export interface UserSession {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string | null;
+  provider?: string;
+}
+
+export function getStoredUser(): UserSession | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem("nexora_user");
   return raw ? JSON.parse(raw) : null;
 }
 
-export function setStoredUser(user: { id: string; name: string; email: string } | null) {
+export function setStoredUser(user: UserSession | null) {
   if (typeof window === "undefined") return;
   if (user) localStorage.setItem("nexora_user", JSON.stringify(user));
   else localStorage.removeItem("nexora_user");
@@ -55,11 +63,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const data = isJson ? await res.json() : null;
 
   if (!res.ok) {
-    const message = data?.error
-      ? typeof data.error === "string"
-        ? data.error
-        : JSON.stringify(data.error)
-      : `Request failed (${res.status})`;
+    let message = `Request failed (${res.status})`;
+    if (data?.error) {
+      if (typeof data.error === "string") {
+        message = data.error;
+      } else if (typeof data.error === "object") {
+        const errObj = data.error as { formErrors?: string[]; fieldErrors?: Record<string, string[]> };
+        const fields = errObj.fieldErrors ? Object.entries(errObj.fieldErrors) : [];
+        if (fields.length > 0) {
+          message = fields.map(([_, errs]) => errs.join(", ")).join("; ");
+        } else if (errObj.formErrors && errObj.formErrors.length > 0) {
+          message = errObj.formErrors.join(", ");
+        } else {
+          message = JSON.stringify(data.error);
+        }
+      } else {
+        message = JSON.stringify(data.error);
+      }
+    }
     throw new ApiError(message, res.status);
   }
   return data as T;

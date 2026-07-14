@@ -13,7 +13,7 @@
   --border: #DEE2E6;
   --muted: #495057;
   --ink: #212529;
-  --accent: #4F8CFF;
+  --accent: #8257E5;
   --accent2: #2FD6A8;
   --warn: #F5B44D;
   --danger: #F0655A;
@@ -27,7 +27,7 @@
   --border: #232C36;
   --muted: #8A97A5;
   --ink: #E9EFF5;
-  --accent: #4F8CFF;
+  --accent: #9061F9;
   --accent2: #2FD6A8;
   --warn: #F5B44D;
   --danger: #F0655A;
@@ -78,7 +78,7 @@ body, aside, main, .card, .btn-primary, .btn-secondary, .btn-ghost, .input {
   .input:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.4);
+    box-shadow: 0 0 0 2px rgba(130, 87, 229, 0.4);
   }
 
   .label {

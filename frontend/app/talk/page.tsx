@@ -38,10 +38,12 @@ export default function TalkPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [thinkingMessage, setThinkingMessage] = useState("Understanding your request...");
+  const [manualInput, setManualInput] = useState("");
 
   const recognitionRef = useRef<any>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const thinkingTimer = useRef<NodeJS.Timeout | null>(null);
+  const finalTranscriptRef = useRef("");
 
   // Load history from localStorage
   useEffect(() => {
@@ -153,9 +155,11 @@ export default function TalkPage() {
 
     if (!soundEnabled) return;
 
-    // Speak Summary + Takeaway to keep voice output natural and concise
+    // Speak only the first 1-2 sentences of the summary to keep vocal responses natural and snappy
     const parsed = parseResponse(text);
-    const speakableText = `${parsed.summary}. ${parsed.nextBestAction}`;
+    const cleanSummary = parsed.summary.replace(/\s+/g, " ").trim();
+    const sentences = cleanSummary.match(/[^.!?]+[.!?]+(\s|$)/g) || [cleanSummary];
+    const speakableText = sentences.slice(0, 2).join("").trim() || cleanSummary;
 
     const utterance = new SpeechSynthesisUtterance(speakableText);
     utteranceRef.current = utterance;
@@ -196,6 +200,7 @@ export default function TalkPage() {
         {
           businessId,
           question: queryText,
+          useCore: true,
         }
       );
 
@@ -258,21 +263,27 @@ export default function TalkPage() {
     recognition.onstart = () => {
       setStatus("listening");
       setTranscript("");
+      finalTranscriptRef.current = "";
       setAiResponse(null);
       setCurrentRawText("");
     };
 
     recognition.onresult = (event: any) => {
       let interimTranscript = "";
+      let finalTranscript = "";
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
-          setTranscript(event.results[i][0].transcript);
+          finalTranscript = event.results[i][0].transcript;
         } else {
           interimTranscript += event.results[i][0].transcript;
         }
       }
-      if (interimTranscript) {
-        setTranscript(interimTranscript);
+      const currentText = finalTranscript || interimTranscript;
+      if (currentText) {
+        setTranscript(currentText);
+        if (finalTranscript) {
+          finalTranscriptRef.current = finalTranscript;
+        }
       }
     };
 
@@ -282,12 +293,13 @@ export default function TalkPage() {
     };
 
     recognition.onend = () => {
-      // Trigger API Core request once stream ends
-      setStatus("thinking");
-      setTranscript((prev) => {
-        processQuery(prev);
-        return prev;
-      });
+      const query = finalTranscriptRef.current;
+      if (query) {
+        setStatus("thinking");
+        processQuery(query);
+      } else {
+        setStatus("idle");
+      }
     };
 
     recognition.start();
@@ -297,7 +309,23 @@ export default function TalkPage() {
   const handleSuggestionClick = (suggestion: string) => {
     if (status === "listening" || status === "thinking") return;
     setTranscript(suggestion);
+    finalTranscriptRef.current = suggestion;
     processQuery(suggestion);
+  };
+
+  // Manual typed input submit handler
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualInput.trim() || status === "thinking" || status === "listening") return;
+
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
+    setTranscript(manualInput);
+    finalTranscriptRef.current = manualInput;
+    processQuery(manualInput);
+    setManualInput("");
   };
 
   // Replay voice answers from history
@@ -399,30 +427,34 @@ export default function TalkPage() {
 
           {/* State 2: Listening (Pulsing microphone + live transcript) */}
           {status === "listening" && (
-            <div className="text-center flex flex-col items-center gap-6 w-full">
+            <div className="text-center flex flex-col items-center gap-8 w-full py-10">
               <div className="relative">
-                <div className="absolute -inset-4 bg-accent/25 rounded-full blur-xl animate-orb-glow" />
+                {/* Massive glowing rings */}
+                <div className="absolute -inset-8 bg-danger/30 rounded-full blur-2xl animate-ping opacity-75" />
+                <div className="absolute -inset-4 bg-danger/20 rounded-full blur-xl animate-orb-glow" />
                 <button
                   onClick={toggleListening}
-                  className="relative w-28 h-28 rounded-full bg-accent text-white flex items-center justify-center shadow-xl shadow-accent/20"
+                  className="relative w-44 h-44 rounded-full bg-danger text-white flex items-center justify-center shadow-2xl shadow-danger/50 border-4 border-white/20 transition-transform duration-300 hover:scale-105 active:scale-95"
                 >
-                  <MicOff size={42} />
+                  <MicOff size={64} />
                 </button>
               </div>
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-sm font-semibold tracking-wider text-accent uppercase animate-pulse">Listening...</span>
+              <div className="flex flex-col items-center gap-3">
+                <span className="text-xl font-bold tracking-widest text-danger uppercase animate-pulse">
+                  🔴 Live Listening
+                </span>
                 {/* Waveform Bar simulation */}
-                <div className="flex items-center justify-center gap-1.5 h-14 mt-2">
-                  <span className="w-1.5 bg-accent rounded-full animate-waveform-bar" style={{ height: '16px', animationDelay: '0.1s' }} />
-                  <span className="w-1.5 bg-accent rounded-full animate-waveform-bar" style={{ height: '36px', animationDelay: '0.3s' }} />
-                  <span className="w-1.5 bg-accent rounded-full animate-waveform-bar" style={{ height: '48px', animationDelay: '0.5s' }} />
-                  <span className="w-1.5 bg-accent rounded-full animate-waveform-bar" style={{ height: '24px', animationDelay: '0.2s' }} />
-                  <span className="w-1.5 bg-accent rounded-full animate-waveform-bar" style={{ height: '12px', animationDelay: '0.4s' }} />
+                <div className="flex items-center justify-center gap-2 h-16 mt-2">
+                  <span className="w-2 bg-danger rounded-full animate-waveform-bar" style={{ height: '24px', animationDelay: '0.1s' }} />
+                  <span className="w-2 bg-danger rounded-full animate-waveform-bar" style={{ height: '48px', animationDelay: '0.3s' }} />
+                  <span className="w-2 bg-danger rounded-full animate-waveform-bar" style={{ height: '64px', animationDelay: '0.5s' }} />
+                  <span className="w-2 bg-danger rounded-full animate-waveform-bar" style={{ height: '36px', animationDelay: '0.2s' }} />
+                  <span className="w-2 bg-danger rounded-full animate-waveform-bar" style={{ height: '18px', animationDelay: '0.4s' }} />
                 </div>
               </div>
-              <div className="w-full max-w-lg mt-4 px-6 py-4 rounded-2xl bg-surface border border-border shadow-inner min-h-[4rem] flex items-center justify-center">
-                <p className="text-ink font-medium italic text-center">
-                  {transcript || "Speak now..."}
+              <div className="w-full max-w-2xl mt-4 px-8 py-6 rounded-3xl bg-[#1a0f0f] border border-danger/30 shadow-inner min-h-[6rem] flex items-center justify-center">
+                <p className="text-danger font-semibold text-lg italic text-center leading-relaxed">
+                  {transcript || "Speak now, I'm listening..."}
                 </p>
               </div>
             </div>
@@ -458,13 +490,15 @@ export default function TalkPage() {
               {/* Response Panel */}
               <div className="w-full rounded-2xl bg-surface border border-border p-6 shadow-xl space-y-6">
                 <div className="flex items-center justify-between border-b border-border pb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-10 h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center ${status === 'speaking' ? 'animate-pulse' : ''}`}>
-                      <Mic size={20} className="text-accent" />
+                  <div className="flex items-center gap-3">
+                    <div className={`w-11 h-11 rounded-full bg-gradient-to-tr from-accent to-purple-600 flex items-center justify-center font-bold text-white text-base shrink-0 shadow-md border border-accent/20 ${status === 'speaking' ? 'animate-pulse' : ''}`}>
+                      ✨
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg">Nexora</h3>
-                      <p className="text-xs text-muted">AI Business Advisor</p>
+                      <h3 className="font-semibold text-lg flex items-center gap-1.5">
+                        Nexora <span className="pill text-[9px] bg-accent/10 text-accent font-semibold py-0.5 px-1.5">AI Advisor</span>
+                      </h3>
+                      <p className="text-xs text-muted">Grounded in your business data</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -495,11 +529,11 @@ export default function TalkPage() {
                     <div className="space-y-4">
                       <div className="p-4 rounded-xl bg-[#12161A] border border-white/5">
                         <h4 className="text-xs font-semibold uppercase tracking-wider text-accent mb-2">Summary</h4>
-                        <p className="text-sm leading-relaxed" style={{ color: "#cbd5e1" }}>{aiResponse.summary}</p>
+                        <p className="text-sm leading-relaxed" style={{ color: "#e2e8f0" }}>{aiResponse.summary}</p>
                       </div>
                       <div className="p-4 rounded-xl bg-[#12161A] border border-white/5">
                         <h4 className="text-xs font-semibold uppercase tracking-wider text-accent mb-2">Next Best Action</h4>
-                        <p className="text-sm leading-relaxed font-semibold" style={{ color: "#cbd5e1" }}>{aiResponse.nextBestAction}</p>
+                        <p className="text-sm leading-relaxed font-semibold" style={{ color: "#e2e8f0" }}>{aiResponse.nextBestAction}</p>
                       </div>
                     </div>
 
@@ -508,7 +542,7 @@ export default function TalkPage() {
                       {aiResponse.recommendations.length > 0 && (
                         <div className="p-4 rounded-xl bg-[#12161A] border border-white/5">
                           <h4 className="text-xs font-semibold uppercase tracking-wider text-accent mb-2.5">Recommendations</h4>
-                          <ul className="space-y-2 text-sm" style={{ color: "#cbd5e1" }}>
+                          <ul className="space-y-2 text-sm" style={{ color: "#e2e8f0" }}>
                             {aiResponse.recommendations.map((item, idx) => (
                               <li key={idx} className="flex items-start gap-2">
                                 <span className="text-accent font-bold mt-0.5">•</span>
@@ -520,7 +554,7 @@ export default function TalkPage() {
                       )}
                       <div className="p-4 rounded-xl bg-[#12161A] border border-white/5">
                         <h4 className="text-xs font-semibold uppercase tracking-wider text-accent mb-2">Why This Matters</h4>
-                        <p className="text-sm leading-relaxed" style={{ color: "#9ca3af" }}>{aiResponse.whyItMatters}</p>
+                        <p className="text-sm leading-relaxed" style={{ color: "#e2e8f0" }}>{aiResponse.whyItMatters}</p>
                       </div>
                     </div>
                   </div>
@@ -539,6 +573,28 @@ export default function TalkPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Manual Keyboard Input Fallback */}
+        <div className="max-w-xl mx-auto w-full mt-auto pt-6 border-t border-border/40 pb-4">
+          <form onSubmit={handleManualSubmit} className="flex gap-2 items-center bg-[#12161A] p-2 rounded-2xl border border-white/5 shadow-inner">
+            <input
+              type="text"
+              placeholder="Or type your question here if mic fails..."
+              value={manualInput}
+              onChange={(e) => setManualInput(e.target.value)}
+              disabled={status === "thinking" || status === "listening"}
+              className="flex-1 bg-transparent border-none outline-none text-sm text-ink px-4 py-2 placeholder-muted"
+            />
+            <button
+              type="submit"
+              disabled={!manualInput.trim() || status === "thinking" || status === "listening"}
+              className="w-10 h-10 rounded-xl bg-accent hover:bg-accent/90 text-white flex items-center justify-center transition-all disabled:opacity-50 disabled:hover:bg-accent shrink-0"
+              title="Send question"
+            >
+              <Send size={18} />
+            </button>
+          </form>
         </div>
 
         {/* Floating Collapsible Sidebar for Voice History */}
