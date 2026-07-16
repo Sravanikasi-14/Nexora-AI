@@ -11,13 +11,13 @@ import {
   Bot,
   Target,
   Lightbulb,
-  Workflow,
   Settings,
   LogOut,
   Sun,
   Moon,
   Menu,
   X,
+  MessageSquare,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -25,9 +25,9 @@ const NAV_ITEMS = [
   { href: "/talk", label: "Talk with Nexora", icon: Mic },
   { href: "/customers", label: "Customer Analytics", icon: BarChart3 },
   { href: "/chat", label: "AI Chat", icon: Bot },
+  { href: "/suggested-messages", label: "AI Suggested Messages", icon: MessageSquare },
   { href: "/missions", label: "Growth Missions", icon: Target },
   { href: "/insights", label: "Insights", icon: Lightbulb },
-  { href: "/automation", label: "Automation", icon: Workflow },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

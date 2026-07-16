@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import { useSession } from "@/lib/useSession";
 import { api, ApiError } from "@/lib/api";
 import { Customer } from "@/lib/types";
+import { getDeepLink } from "@/lib/deepLinks";
 
 export default function CustomerDetailPage() {
   const params = useParams<{ id: string }>();
@@ -26,6 +27,9 @@ export default function CustomerDetailPage() {
   const [generatedDraft, setGeneratedDraft] = useState<any>(null);
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [savingApproval, setSavingApproval] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [popupFallbackUrl, setPopupFallbackUrl] = useState<string | null>(null);
+  const [popupFallbackLabel, setPopupFallbackLabel] = useState<string>("");
 
   // Edit Customer Form State
   const [editForm, setEditForm] = useState({
@@ -34,6 +38,7 @@ export default function CustomerDetailPage() {
     email: "",
     city: "",
     notes: "",
+    leadStatus: "",
   });
 
   // Add Purchase Form State
@@ -49,6 +54,9 @@ export default function CustomerDetailPage() {
 
   async function handleDraftWinBackMessage() {
     setDrafting(true);
+    setDraftError(null);
+    setPopupFallbackUrl(null);
+    setPopupFallbackLabel("");
     try {
       const res = await api.post<{ draft: any }>("/api/automation/draft", {
         customerId: params.id,
@@ -64,15 +72,73 @@ export default function CustomerDetailPage() {
   }
 
   async function handleApproveDraft() {
+    if (!generatedDraft || !customer) return;
+
+    const linkInfo = getDeepLink(generatedDraft, customer);
+    if (linkInfo.error) {
+      setDraftError(linkInfo.error);
+      return;
+    }
+
+    console.log("[Approve handler] Top of approve handler. generatedDraft type:", generatedDraft.type, "Link URL:", linkInfo.url);
+
+    let win: Window | null = null;
+    const isProtocolHandler = linkInfo.url && (linkInfo.url.startsWith("mailto:") || linkInfo.url.startsWith("sms:"));
+
+    if (linkInfo.url) {
+      if (isProtocolHandler) {
+        console.log("[Approve handler] Detected protocol handler link. Setting window.location.href synchronously on current tab...");
+        window.location.href = linkInfo.url;
+      } else {
+        console.log("[Approve handler] Attempting window.open('', '_blank') synchronously for web link...");
+        win = window.open("", "_blank");
+        console.log("[Approve handler] window.open returned win:", win);
+      }
+    }
+
+    setSavingApproval(true);
+    setDraftError(null);
+    setPopupFallbackUrl(null);
+    setPopupFallbackLabel("");
+
+    try {
+      const res = await api.patch<{ draft: any }>(`/api/automation/${generatedDraft.id}`, { status: "approved" });
+      setGeneratedDraft(res.draft);
+      if (linkInfo.url) {
+        if (!isProtocolHandler) {
+          console.log("[Approve handler] Setting win.location.href to:", linkInfo.url);
+          if (win) {
+            win.location.href = linkInfo.url;
+          } else {
+            console.warn("[Approve handler] win object was null (popup blocked). Showing fallback UI link.");
+            setPopupFallbackUrl(linkInfo.url);
+            setPopupFallbackLabel(`Click here to open in ${linkInfo.channelLabel}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[Approve handler] Error approving draft:", err);
+      if (win) {
+        try {
+          win.close();
+        } catch (_) {}
+      }
+      alert(err instanceof Error ? err.message : "Failed to approve draft");
+    } finally {
+      setSavingApproval(false);
+    }
+  }
+
+  async function handleMarkAsSent() {
     if (!generatedDraft) return;
     setSavingApproval(true);
     try {
-      await api.patch(`/api/automation/${generatedDraft.id}`, { status: "approved" });
-      alert("✓ Draft successfully approved and saved!");
+      await api.patch(`/api/automation/${generatedDraft.id}`, { status: "sent" });
+      alert("✓ Draft successfully marked as sent!");
       setShowDraftModal(false);
       setGeneratedDraft(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to approve draft");
+      alert(err instanceof Error ? err.message : "Failed to mark as sent");
     } finally {
       setSavingApproval(false);
     }
@@ -144,6 +210,7 @@ export default function CustomerDetailPage() {
           email: res.customer.email || "",
           city: res.customer.city || "",
           notes: res.customer.notes || "",
+          leadStatus: res.customer.leadStatus || "New",
         });
       })
       .catch(() => setCustomer(null))
@@ -161,6 +228,7 @@ export default function CustomerDetailPage() {
         email: editForm.email || null,
         city: editForm.city || null,
         notes: editForm.notes || null,
+        leadStatus: editForm.leadStatus || null,
       });
       setCustomer(res.customer);
       setActionStatus("✓ Profile updated successfully!");
@@ -376,6 +444,23 @@ export default function CustomerDetailPage() {
           </div>
 
           <div>
+            <span className="text-[10px] text-muted uppercase tracking-wider block mb-0.5">Lead Status</span>
+            <span className={`pill text-[10px] font-semibold uppercase ${
+              customer.leadStatus === "Closed Won"
+                ? "bg-emerald-500/15 text-emerald-400"
+                : customer.leadStatus === "Closed Lost"
+                ? "bg-danger/15 text-danger"
+                : customer.leadStatus === "Interested" || customer.leadStatus === "Negotiation"
+                ? "bg-accent2/15 text-accent2"
+                : customer.leadStatus === "Follow-up Required" || customer.leadStatus === "Site Visit Scheduled"
+                ? "bg-warn/15 text-warn"
+                : "bg-muted/15 text-muted"
+            }`}>
+              {customer.leadStatus || "New"}
+            </span>
+          </div>
+
+          <div>
             <span className="text-[10px] text-muted uppercase tracking-wider block mb-0.5">Registered On</span>
             <span className="text-sm text-muted">{customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : "—"}</span>
           </div>
@@ -475,6 +560,24 @@ export default function CustomerDetailPage() {
                   value={editForm.city}
                   onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
                 />
+              </div>
+
+              <div>
+                <label className="label">Lead Status</label>
+                <select
+                  className="input py-2 text-sm"
+                  value={editForm.leadStatus}
+                  onChange={(e) => setEditForm({ ...editForm, leadStatus: e.target.value })}
+                >
+                  <option value="New">New</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Interested">Interested</option>
+                  <option value="Negotiation">Negotiation</option>
+                  <option value="Site Visit Scheduled">Site Visit Scheduled</option>
+                  <option value="Follow-up Required">Follow-up Required</option>
+                  <option value="Closed Won">Closed Won</option>
+                  <option value="Closed Lost">Closed Lost</option>
+                </select>
               </div>
 
               <div>
@@ -652,7 +755,10 @@ export default function CustomerDetailPage() {
           <div className="card w-full max-w-2xl p-6 relative flex flex-col gap-5 border border-border shadow-2xl bg-surface animate-in fade-in zoom-in duration-200">
             <button
               className="absolute top-4 right-4 text-muted hover:text-ink text-sm p-1 rounded-full hover:bg-surface2/50 transition-colors"
-              onClick={handleDiscardDraft}
+              onClick={() => {
+                setShowDraftModal(false);
+                setGeneratedDraft(null);
+              }}
               disabled={savingApproval}
             >
               ✕
@@ -662,13 +768,26 @@ export default function CustomerDetailPage() {
               <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-accent to-purple-600 flex items-center justify-center font-bold text-white text-sm shrink-0 shadow-sm border border-accent/20">
                 ✨
               </div>
-              <div>
-                <h2 className="font-display text-lg font-semibold text-ink leading-tight">
-                  Nexora Outreach Draft
-                </h2>
-                <p className="text-muted text-xs">
-                  Grounded customer outreach drafted via Google Gemini.
-                </p>
+              <div className="flex-1 flex justify-between items-start gap-4">
+                <div>
+                  <h2 className="font-display text-lg font-semibold text-ink leading-tight">
+                    Nexora Outreach Draft
+                  </h2>
+                  <p className="text-muted text-xs">
+                    Grounded customer outreach drafted via Google Gemini.
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  {generatedDraft.status === "approved" ? (
+                    <span className="pill bg-accent2/15 text-accent2 text-[10px] uppercase font-semibold">
+                      Approved — opened in {getDeepLink(generatedDraft, customer).channelLabel}
+                    </span>
+                  ) : (
+                    <span className="pill bg-warn/15 text-warn text-[10px] uppercase font-semibold">
+                      Draft
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -724,23 +843,83 @@ export default function CustomerDetailPage() {
               </div>
             )}
 
+            {popupFallbackUrl && (
+              <div className="bg-warn/15 border border-warn/30 p-3 rounded-lg text-xs text-ink flex items-center justify-between gap-3 animate-in fade-in duration-200">
+                <span>⚠️ The popup window was blocked by your browser.</span>
+                <a
+                  href={popupFallbackUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary text-xs px-3 py-1 font-semibold whitespace-nowrap"
+                  onClick={() => {
+                    setPopupFallbackUrl(null);
+                    setPopupFallbackLabel("");
+                  }}
+                >
+                  {popupFallbackLabel || "Open Link"}
+                </a>
+              </div>
+            )}
+
+            {draftError && (
+              <p className="text-xs text-danger font-semibold bg-danger/5 p-2.5 rounded-lg border border-danger/10">
+                ⚠️ {draftError}
+              </p>
+            )}
+
             <div className="flex justify-end gap-2 mt-2 pt-4 border-t border-border">
-              <button
-                type="button"
-                className="btn-secondary text-xs px-4 py-2"
-                onClick={handleDiscardDraft}
-                disabled={savingApproval}
-              >
-                Discard
-              </button>
-              <button
-                type="button"
-                className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
-                onClick={handleApproveDraft}
-                disabled={savingApproval}
-              >
-                {savingApproval ? "Saving..." : "✓ Approve & Save"}
-              </button>
+              {generatedDraft.status === "draft" ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs px-4 py-2"
+                    onClick={handleDiscardDraft}
+                    disabled={savingApproval}
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
+                    onClick={handleApproveDraft}
+                    disabled={savingApproval}
+                  >
+                    {savingApproval ? "Approving..." : "Approve"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs px-4 py-2"
+                    onClick={() => {
+                      setShowDraftModal(false);
+                      setGeneratedDraft(null);
+                    }}
+                    disabled={savingApproval}
+                  >
+                    Close
+                  </button>
+                  {getDeepLink(generatedDraft, customer).url && (
+                    <a
+                      href={getDeepLink(generatedDraft, customer).url || "#"}
+                      target={getDeepLink(generatedDraft, customer).url?.startsWith("http") ? "_blank" : undefined}
+                      rel="noopener noreferrer"
+                      className="btn-secondary text-xs px-4 py-2 flex items-center gap-1 font-semibold border-accent/20 hover:bg-accent/5 text-accent"
+                    >
+                      Open in {getDeepLink(generatedDraft, customer).channelLabel}
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-primary text-xs px-4 py-2"
+                    onClick={handleMarkAsSent}
+                    disabled={savingApproval}
+                  >
+                    {savingApproval ? "Updating..." : "Mark as Sent"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -99,6 +99,7 @@ export interface Customer {
   inactive?: boolean;
   nextOpportunity?: string;
   createdAt?: string;
+  leadStatus?: string | null;
   sales?: {
     id: string;
     amount: number;
@@ -134,4 +135,9 @@ export interface AutomationDraft {
   reasoning: string;
   status: string;
   createdAt: string;
+  customer?: Customer | null;
+  category?: string | null;
+  reason?: string | null;
+  confidence?: string | null;
+  approvedAt?: string | null;
 }

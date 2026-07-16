@@ -94,6 +94,7 @@ model Customer {
   lifetimeValue  Float     @default(0)
   lastPurchaseAt DateTime?
   createdAt      DateTime  @default(now())
+  leadStatus     String?   @default("New")
 
   sales Sale[]
 }
@@ -165,6 +166,10 @@ model AutomationDraft {
   reasoning        String
   status           String   @default("draft") // draft | approved | rejected | sent
   createdAt        DateTime @default(now())
+  category         String?
+  reason           String?
+  confidence       String?
+  approvedAt       DateTime?
 }
 
 model ChatMessage {

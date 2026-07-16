@@ -56,7 +56,7 @@ export async function generateAutomationDraft(input: DraftInput): Promise<Genera
 
   const enhanced = await generateGroundedText({
     system:
-      "You write short, warm, non-pushy business outreach drafts for a small business owner to review and approve before sending. Never invent facts about the customer beyond what is given.",
+      "You write short, warm, non-pushy business outreach drafts for a small business owner to review and approve before sending. Never invent facts about the customer beyond what is given. The message content must contain ONLY the actual customer-facing text, without any headers, meta-commentary, notes, or target-audience descriptions.",
     groundingFacts: {
       businessName: input.businessName,
       customerName: input.customer.name,
@@ -67,8 +67,8 @@ export async function generateAutomationDraft(input: DraftInput): Promise<Genera
     },
     instruction:
       input.type === "email"
-        ? "Write a short email. Return exactly two lines: line 1 is the subject prefixed with 'SUBJECT:', line 2+ is the body."
-        : "Write a short, friendly message (2-3 sentences max) for this channel. Return only the message body, nothing else.",
+        ? "Write a short email. Return exactly two lines: line 1 is the subject prefixed with 'SUBJECT:', line 2+ is the body. Do not include any headers like 'Target Audience:' or 'Call To Action:' in the email body."
+        : "Write a short, friendly message (2-3 sentences max) for this channel. Return only the message body, nothing else. Do not include any notes, headers, or meta-commentary.",
     maxTokens: 300,
   });
 

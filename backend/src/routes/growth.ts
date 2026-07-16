@@ -74,7 +74,26 @@ router.get("/automation/:businessId", async (req: AuthedRequest, res) => {
   const business = await assertBusinessOwnership(req.params.businessId, req.userId!);
   if (!business) return res.status(404).json({ error: "Not found" });
   const drafts = await prisma.automationDraft.findMany({ where: { businessId: business.id }, orderBy: { createdAt: "desc" } });
-  res.json({ drafts });
+  
+  const enrichedDrafts = await Promise.all(
+    drafts.map(async (d) => {
+      let customer = null;
+      if (d.targetCustomerId) {
+        customer = await prisma.customer.findUnique({
+          where: { id: d.targetCustomerId },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+          },
+        });
+      }
+      return { ...d, customer };
+    })
+  );
+
+  res.json({ drafts: enrichedDrafts });
 });
 
 // Helper for template fallbacks
@@ -215,13 +234,15 @@ The products offered: "${business.products || "None specified"}".
 The services offered: "${business.services || "None specified"}".
 
 Generate exactly these 5 types:
-1. type: "email" (An Email Campaign. Content must show the Email Content, Target Audience, and Call To Action clearly).
-2. type: "whatsapp" (A WhatsApp Campaign. Content must show the Promotional message / Loyalty offer).
-3. type: "instagram" (An Instagram Post. Content must show the Caption, Hashtags, and a Marketing Suggestion).
-4. type: "followup" (A Customer Follow-up message. Content must show the Reminder details, Discount offer, or Feedback request).
-5. type: "seasonal" (A Seasonal Campaign. Content must show the Festival / Holiday / Weekend promotions).
+1. type: "email" (An Email Campaign. The content field must contain ONLY the actual email body message. Do NOT include metadata like "Target Audience" or "Call To Action" inside content. Place any target audience suggestions or call-to-action details inside the reasoning field).
+2. type: "whatsapp" (A WhatsApp Campaign. The content field must contain ONLY the actual promotional message/loyalty offer text to be sent directly to the customer).
+3. type: "instagram" (An Instagram Post. The content field must contain ONLY the post caption and hashtags).
+4. type: "followup" (A Customer Check-in message. The content field must contain ONLY the check-in or feedback text).
+5. type: "seasonal" (A Seasonal Campaign. The content field must contain ONLY the promotional weekend/holiday message).
 
-Return a JSON array of objects with fields "type" (one of: "email", "whatsapp", "instagram", "followup", "seasonal"), "subject" (string or null, email must have a subject), "content" (string), and "reasoning" (string, explaining why this is suitable in plain non-technical language).`;
+CRITICAL: For all types, the "content" field MUST contain ONLY final customer-facing message copy. Never mix meta-commentary, headers, target audience lists, or call-to-action labels into "content". Put all target audience details, marketing recommendations, and call-to-action suggestions in the "reasoning" field instead.
+
+Return a JSON array of objects with fields "type" (one of: "email", "whatsapp", "instagram", "followup", "seasonal"), "subject" (string or null, email must have a subject), "content" (string), and "reasoning" (string, explaining why this is suitable along with target audience/call-to-action suggestions).`;
 
     const aiRes = await generateGroundedText({
       system: "You generate professional, high-converting marketing campaigns and drafts for small businesses. Return only a valid JSON array.",
@@ -265,7 +286,7 @@ Return a JSON array of objects with fields "type" (one of: "email", "whatsapp", 
         status: "draft",
       },
     });
-    created.push(saved);
+    created.push({ ...saved, customer: null });
   }
 
   res.json({ drafts: created });
@@ -286,7 +307,12 @@ router.patch("/automation/:id", async (req: AuthedRequest, res) => {
   if (!draft || draft.business.userId !== req.userId) return res.status(404).json({ error: "Not found" });
 
   const dataToUpdate: any = {};
-  if (parsed.data.status !== undefined) dataToUpdate.status = parsed.data.status;
+  if (parsed.data.status !== undefined) {
+    dataToUpdate.status = parsed.data.status;
+    if (parsed.data.status === "approved") {
+      dataToUpdate.approvedAt = new Date();
+    }
+  }
   if (parsed.data.subject !== undefined) dataToUpdate.subject = parsed.data.subject;
   if (parsed.data.content !== undefined) dataToUpdate.content = parsed.data.content;
 
@@ -294,7 +320,412 @@ router.patch("/automation/:id", async (req: AuthedRequest, res) => {
     where: { id: req.params.id },
     data: dataToUpdate,
   });
-  res.json({ draft: updated });
+
+  let customer = null;
+  if (updated.targetCustomerId) {
+    customer = await prisma.customer.findUnique({
+      where: { id: updated.targetCustomerId },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        leadStatus: true,
+      },
+    });
+  }
+
+  res.json({ draft: updated, customer });
+});
+
+// GET Suggested messages for a business (targetCustomerId is not null)
+router.get("/automation/:businessId/suggestions", async (req: AuthedRequest, res) => {
+  const business = await assertBusinessOwnership(req.params.businessId, req.userId!);
+  if (!business) return res.status(404).json({ error: "Not found" });
+
+  const drafts = await prisma.automationDraft.findMany({
+    where: {
+      businessId: business.id,
+      targetCustomerId: { not: null },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const enrichedDrafts = await Promise.all(
+    drafts.map(async (d) => {
+      const customer = await prisma.customer.findUnique({
+        where: { id: d.targetCustomerId! },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          leadStatus: true,
+          notes: true,
+        },
+      });
+      return { ...d, customer };
+    })
+  );
+
+  res.json({ drafts: enrichedDrafts });
+});
+
+// POST Generate suggested messages for a business
+router.post("/automation/:businessId/generate-suggestions", async (req: AuthedRequest, res) => {
+  const business = await assertBusinessOwnership(req.params.businessId, req.userId!);
+  if (!business) return res.status(404).json({ error: "Not found" });
+
+  const customers = await prisma.customer.findMany({
+    where: { businessId: business.id },
+    include: { sales: { orderBy: { date: "desc" } } },
+  });
+
+  if (customers.length === 0) {
+    return res.json({ drafts: [] });
+  }
+
+  const generatedSuggestions: Array<{
+    customerId: string;
+    category: string;
+    reason: string;
+    confidence: string;
+    content: string;
+  }> = [];
+
+  const now = new Date();
+  const customersData = customers.map(c => {
+    const daysSinceLastPurchase = c.lastPurchaseAt
+      ? Math.floor((now.getTime() - new Date(c.lastPurchaseAt).getTime()) / (24 * 60 * 60 * 1000))
+      : null;
+    return {
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      email: c.email,
+      leadStatus: c.leadStatus || "New",
+      city: c.city,
+      notes: c.notes,
+      lifetimeValue: c.lifetimeValue,
+      daysSinceLastPurchase,
+      salesCount: c.sales.length,
+    };
+  });
+
+  let useFallback = false;
+  try {
+    const prompt = `You are an AI suggestion engine for a Real Estate / CRM dashboard called Nexora.
+Analyze the following customers for business "${business.name}" (Industry: "${business.industry || "Real Estate"}", Goals: "${business.goals || "Increase sales and customer engagement"}").
+For each qualified customer, generate a personalized WhatsApp outreach message draft based on their CRM history, notes, and activity.
+
+We support generating suggestions for:
+- "New lead with no follow-up"
+- "Customer hasn't replied in several days"
+- "Site visit reminder"
+- "Site visit follow-up"
+- "New property matching customer's preferences" (Budget, bedrooms, preferred location from customer notes)
+- "Payment reminder"
+- "Documentation reminder"
+- "Thank-you after inquiry"
+- "Festival greetings"
+- "Re-engagement for inactive leads"
+
+STRICT RULES:
+1. Do NOT suggest messages for all customers. Only suggest for those where there is a clear, meaningful reason.
+2. Personalize each message using the customer's name.
+3. Mention specific property details (like Green Valley, 3BHK project, location) from customer notes if applicable.
+4. Keep messages polite, professional, concise, and natural (never robotic or overly sales-focused).
+5. Output MUST be a JSON array of objects, each containing:
+   - customerId (exact customer ID from data)
+   - category (one of: "Follow-up", "Reminder", "Site Visit", "Payment", "Greeting", "Re-engagement", "Thank-you")
+   - reason (the explanation for the suggestion, e.g. "Customer has not been contacted for 6 days.")
+   - confidence ("High" | "Medium" | "Low")
+   - content (the actual customer-facing WhatsApp message copy)
+
+Customers data:
+${JSON.stringify(customersData, null, 2)}`;
+
+    const aiRes = await generateGroundedText({
+      system: "You generate professional, highly targeted CRM communication drafts and suggestions. You output only a valid JSON array of objects.",
+      groundingFacts: { business, customersCount: customers.length },
+      instruction: prompt,
+      maxTokens: 2000,
+    });
+
+    if (aiRes) {
+      const start = aiRes.indexOf("[");
+      const end = aiRes.lastIndexOf("]") + 1;
+      if (start !== -1 && end !== -1) {
+        const parsed = JSON.parse(aiRes.slice(start, end));
+        if (Array.isArray(parsed)) {
+          generatedSuggestions.push(...parsed);
+        }
+      } else {
+        useFallback = true;
+      }
+    } else {
+      useFallback = true;
+    }
+  } catch (err) {
+    console.error("[GenerateSuggestions] AI generation failed, using fallback templates", err);
+    useFallback = true;
+  }
+
+  // Fallback template engine
+  if (useFallback || generatedSuggestions.length === 0) {
+    console.log("[GenerateSuggestions] Running fallback rule engine...");
+    for (const c of customers) {
+      const name = c.name;
+      const firstName = name.split(" ")[0];
+      const notesLower = (c.notes || "").toLowerCase();
+      const status = c.leadStatus || "New";
+
+      let matched = false;
+
+      // 1. Payment reminder
+      if (!matched && (notesLower.includes("payment") || notesLower.includes("due") || notesLower.includes("pending payment"))) {
+        generatedSuggestions.push({
+          customerId: c.id,
+          category: "Payment",
+          reason: "Payment due details found in customer profile notes.",
+          confidence: "High",
+          content: `Hi ${firstName}, hope you're doing well. Just a gentle reminder regarding the next payment milestone for your property booking with ${business.name}. Please let us know if you need any assistance or documentation for the process.`,
+        });
+        matched = true;
+      }
+
+      // 2. Site Visit scheduled / reminder
+      if (!matched && (notesLower.includes("site visit") || notesLower.includes("visit") || notesLower.includes("schedule visit"))) {
+        generatedSuggestions.push({
+          customerId: c.id,
+          category: "Site Visit",
+          reason: "Site visit mentioned in customer notes.",
+          confidence: "High",
+          content: `Hi ${firstName}, I hope you're having a great week! Just wanted to follow up on your interest in our Green Valley project. Would you like us to schedule a site visit this weekend so we can show you around? Let us know what time works best for you.`,
+        });
+        matched = true;
+      }
+
+      // 3. Documentation reminder
+      if (!matched && (notesLower.includes("document") || notesLower.includes("paperwork") || notesLower.includes("registration"))) {
+        generatedSuggestions.push({
+          customerId: c.id,
+          category: "Reminder",
+          reason: "Documentation action item detected in notes.",
+          confidence: "High",
+          content: `Hi ${firstName}, hope you're doing well. We wanted to remind you to share the pending documents required for your registry. This will help us finalize the paperwork at the earliest. Let us know if you have any questions!`,
+        });
+        matched = true;
+      }
+
+      // 4. New lead with no follow-up / Thank-you after inquiry
+      if (!matched && status === "New") {
+        generatedSuggestions.push({
+          customerId: c.id,
+          category: "Thank-you",
+          reason: "New customer added with lead status New.",
+          confidence: "High",
+          content: `Hi ${firstName}, thank you for reaching out to ${business.name}! We received your inquiry regarding our properties. I'd love to share some brochure options that match your budget. When is a good time for a short call?`,
+        });
+        matched = true;
+      }
+
+      // 5. Inactive leads / Re-engagement
+      if (!matched && (!c.lastPurchaseAt || (now.getTime() - new Date(c.lastPurchaseAt).getTime()) > 30 * 86400000)) {
+        generatedSuggestions.push({
+          customerId: c.id,
+          category: "Re-engagement",
+          reason: "No purchase or follow-up in the last 30 days.",
+          confidence: "Medium",
+          content: `Hi ${firstName}, hope you're doing well! It's been a while since we connected. We just launched a premium 3BHK project in a prime location. Would you be interested in receiving the layout and pricing details?`,
+        });
+        matched = true;
+      }
+
+      // 6. Follow-up Required
+      if (!matched && status === "Follow-up Required") {
+        generatedSuggestions.push({
+          customerId: c.id,
+          category: "Follow-up",
+          reason: "Lead status is set to Follow-up Required.",
+          confidence: "High",
+          content: `Hi ${firstName}, hope you're doing well. I'm checking in to see if you had a chance to review the property pricing we sent over. Let me know if you would like to discuss it further or schedule a call.`,
+        });
+        matched = true;
+      }
+    }
+  }
+
+  // Save drafts and apply duplicate prevention
+  const createdDrafts = [];
+  for (const item of generatedSuggestions) {
+    const customer = customers.find(c => c.id === item.customerId);
+    if (!customer) continue;
+
+    const existing = await prisma.automationDraft.findFirst({
+      where: {
+        businessId: business.id,
+        targetCustomerId: item.customerId,
+        category: item.category,
+        status: "draft",
+      },
+    });
+
+    if (existing) {
+      continue;
+    }
+
+    const saved = await prisma.automationDraft.create({
+      data: {
+        businessId: business.id,
+        type: "whatsapp",
+        targetCustomerId: item.customerId,
+        content: item.content,
+        reasoning: item.reason,
+        reason: item.reason,
+        confidence: item.confidence,
+        category: item.category,
+        status: "draft",
+      },
+    });
+
+    createdDrafts.push({
+      ...saved,
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        leadStatus: customer.leadStatus,
+        notes: customer.notes,
+      },
+    });
+  }
+
+  res.json({ drafts: createdDrafts });
+});
+
+// POST Regenerate suggested message with tone/style options
+router.post("/automation/draft/:id/regenerate", async (req: AuthedRequest, res) => {
+  const { style } = req.body;
+  if (!style || !["Friendlier", "More Professional", "Shorter", "More Persuasive"].includes(style)) {
+    return res.status(400).json({ error: "Invalid style parameter" });
+  }
+
+  const draft = await prisma.automationDraft.findUnique({
+    where: { id: req.params.id },
+    include: { business: true },
+  });
+
+  if (!draft || draft.business.userId !== req.userId) {
+    return res.status(404).json({ error: "Draft not found" });
+  }
+
+  if (!draft.targetCustomerId) {
+    return res.status(400).json({ error: "Draft must have a target customer to regenerate" });
+  }
+
+  const customer = await prisma.customer.findUnique({
+    where: { id: draft.targetCustomerId },
+  });
+
+  if (!customer) {
+    return res.status(404).json({ error: "Customer not found" });
+  }
+
+  let rewrittenText = "";
+  let useFallback = false;
+
+  try {
+    const prompt = `You are an AI assistant. Rewrite the following WhatsApp message draft for customer "${customer.name}" in a "${style}" style.
+Original Message: "${draft.content}"
+Reason for Outreach: "${draft.reason || draft.reasoning}"
+Business Name: "${draft.business.name}"
+
+STRICT RULES:
+1. Do NOT include any headers, subject, quotes, greeting-labels, tags, or metadata in the message body.
+2. Return ONLY the rewritten message text itself.
+3. Keep the tone human-like, warm, and natural for WhatsApp. Keep the length concise.`;
+
+    const aiRes = await generateGroundedText({
+      system: "You rewrite text in specific tones and styles. You output ONLY the final rewritten text.",
+      groundingFacts: { customerName: customer.name, businessName: draft.business.name },
+      instruction: prompt,
+      maxTokens: 400,
+    });
+
+    if (aiRes) {
+      rewrittenText = aiRes.trim();
+    } else {
+      useFallback = true;
+    }
+  } catch (err) {
+    console.error("[RegenerateDraft] AI generation failed, using fallback tone converter", err);
+    useFallback = true;
+  }
+
+  if (useFallback || !rewrittenText) {
+    const firstName = customer.name.split(" ")[0];
+    const baseMessage = draft.content;
+    if (style === "Shorter") {
+      rewrittenText = baseMessage.length > 80 
+        ? baseMessage.slice(0, 80) + "..."
+        : baseMessage;
+    } else if (style === "Friendlier") {
+      rewrittenText = `Hey ${firstName}! 😊 Just wanted to connect and check in. ${baseMessage}`;
+    } else if (style === "More Professional") {
+      rewrittenText = `Dear ${customer.name}, we would like to connect regarding our previous conversation. ${baseMessage}`;
+    } else if (style === "More Persuasive") {
+      rewrittenText = `${baseMessage} We have limited slots, so let us know at your convenience if you'd like to check this out!`;
+    } else {
+      rewrittenText = baseMessage;
+    }
+  }
+
+  const updated = await prisma.automationDraft.update({
+    where: { id: draft.id },
+    data: {
+      content: rewrittenText,
+    },
+  });
+
+  const enriched = {
+    ...updated,
+    customer: {
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      leadStatus: customer.leadStatus,
+      notes: customer.notes,
+    },
+  };
+
+  res.json({ draft: enriched });
+});
+
+// POST Bulk update status for drafts
+router.post("/automation/:businessId/bulk-update", async (req: AuthedRequest, res) => {
+  const business = await assertBusinessOwnership(req.params.businessId, req.userId!);
+  if (!business) return res.status(404).json({ error: "Not found" });
+
+  const { ids, status } = req.body;
+  if (!Array.isArray(ids) || !["approved", "rejected"].includes(status)) {
+    return res.status(400).json({ error: "Invalid parameters" });
+  }
+
+  await prisma.automationDraft.updateMany({
+    where: {
+      id: { in: ids },
+      businessId: business.id,
+    },
+    data: {
+      status,
+      approvedAt: status === "approved" ? new Date() : null,
+    },
+  });
+
+  res.json({ success: true });
 });
 
 const draftRequestSchema = z.object({
@@ -348,7 +779,18 @@ router.post("/automation/draft", async (req: AuthedRequest, res) => {
       },
     });
 
-    res.json({ draft: savedDraft });
+    res.json({
+      draft: {
+        ...savedDraft,
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          leadStatus: customer.leadStatus,
+        },
+      },
+    });
   } catch (err) {
     console.error("[SingleAutomationDraft] Generation failed", err);
     res.status(500).json({ error: "Failed to generate win-back draft" });
@@ -356,3 +798,4 @@ router.post("/automation/draft", async (req: AuthedRequest, res) => {
 });
 
 export default router;
+

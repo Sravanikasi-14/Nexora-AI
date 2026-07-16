@@ -364,10 +364,10 @@ export default function DashboardPage() {
           <p className="text-xs text-muted mb-2">Connect with your AI chief growth consultant regarding employees adjustments or sales simulations.</p>
           <p className="text-xs text-accent">Ask &quot;What if I reduce my employee count by 2?&quot; →</p>
         </Link>
-        <Link href="/automation" className="card p-5 hover:border-accent/40 transition block">
-          <p className="font-semibold text-sm mb-1">Tasks You Can Automate</p>
-          <p className="text-xs text-muted mb-2">Review AI-prepared campaigns, templates and reminders to increase customer retention.</p>
-          <p className="text-xs text-accent">{data.automationSuggestionCount ?? 0} draft(s) ready for review →</p>
+        <Link href="/suggested-messages" className="card p-5 hover:border-accent/40 transition block">
+          <p className="font-semibold text-sm mb-1">AI Suggested Messages</p>
+          <p className="text-xs text-muted mb-2">Review AI-prepared personalized WhatsApp messages to follow up with customers.</p>
+          <p className="text-xs text-accent">{data.automationSuggestionCount ?? 0} suggested message(s) ready for review →</p>
         </Link>
       </div>
 

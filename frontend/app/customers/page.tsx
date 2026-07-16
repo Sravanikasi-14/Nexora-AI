@@ -486,7 +486,7 @@ export default function CustomerAnalysticsPage() {
             <p className="text-[10px] text-muted mb-4 leading-normal">
               <strong>What it means:</strong> Groups your customer base into VIPs, Repeaters, New Active, and Quiet buyers.<br/>
               <strong>Why it matters:</strong> Allows you to target different groups with tailored outreach (e.g. VIP rewards vs re-engagement).<br/>
-              <strong>What action to take:</strong> Check your &quot;Tasks You Can Automate&quot; page to start re-engaging quiet customers.
+              <strong>What action to take:</strong> Check your &quot;AI Suggested Messages&quot; page to start re-engaging quiet customers.
             </p>
             <div className="flex flex-col gap-3">
               {[

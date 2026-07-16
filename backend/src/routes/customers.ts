@@ -79,6 +79,7 @@ const manualCustomerSchema = z.object({
   email: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  leadStatus: z.string().optional().nullable(),
   // Purchase details (if added on creation)
   product: z.string().optional().nullable(),
   productCategory: z.string().optional().nullable(),
@@ -118,6 +119,7 @@ router.post("/", async (req: AuthedRequest, res) => {
     email,
     city,
     notes,
+    leadStatus,
     product,
     productCategory,
     quantity,
@@ -148,6 +150,9 @@ router.post("/", async (req: AuthedRequest, res) => {
     if (notes && notes.trim() !== "") {
       updateData.notes = customer.notes ? `${customer.notes}\n${notes.trim()}` : notes.trim();
     }
+    if (leadStatus && leadStatus.trim() !== "") {
+      updateData.leadStatus = leadStatus.trim();
+    }
     
     if (Object.keys(updateData).length > 0) {
       customer = await prisma.customer.update({
@@ -165,6 +170,7 @@ router.post("/", async (req: AuthedRequest, res) => {
         email: email ? email.trim().toLowerCase() : null,
         city: city ? city.trim() : null,
         notes: notes ? notes.trim() : null,
+        leadStatus: leadStatus ? leadStatus.trim() : "New",
       },
     });
   }
@@ -213,6 +219,7 @@ const editCustomerSchema = z.object({
   email: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  leadStatus: z.string().optional().nullable(),
 });
 
 router.patch("/:id", async (req: AuthedRequest, res) => {
@@ -235,6 +242,7 @@ router.patch("/:id", async (req: AuthedRequest, res) => {
       email: parsed.data.email ? parsed.data.email.trim().toLowerCase() : null,
       city: parsed.data.city ? parsed.data.city.trim() : null,
       notes: parsed.data.notes ? parsed.data.notes.trim() : null,
+      leadStatus: parsed.data.leadStatus !== undefined ? (parsed.data.leadStatus ? parsed.data.leadStatus.trim() : null) : undefined,
     },
   });
 
