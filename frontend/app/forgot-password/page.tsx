@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { api, ApiError } from "@/lib/api";
+import { api } from "@/lib/api";
+import { motion, useReducedMotion } from "framer-motion";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,32 +29,45 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-base text-ink flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 flex items-center justify-center px-6 py-16">
+      <motion.div
+        initial={shouldReduceMotion ? {} : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className="w-full max-w-sm"
+      >
         <Link href="/login" className="flex items-center gap-2 justify-center mb-8">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center font-display font-bold text-white">N</div>
-          <span className="font-display font-semibold text-lg">Nexora</span>
+          <motion.div
+            whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+            whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+            className="w-8 h-8 rounded bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center font-display font-bold text-white dark:text-zinc-900 text-sm shadow"
+          >
+            N
+          </motion.div>
+          <span className="font-display font-semibold text-lg tracking-tight">Nexora</span>
         </Link>
 
-        <div className="card p-7">
-          <h1 className="font-display text-xl font-semibold mb-1">Reset your password</h1>
-          <p className="text-sm text-muted mb-6">Enter your email address and we'll send you a link to reset your password.</p>
+        <div className="card p-7 border border-zinc-250 dark:border-zinc-850 shadow-glow bg-white dark:bg-zinc-950 rounded-xl">
+          <h1 className="font-display text-xl font-bold tracking-tight mb-1 text-zinc-900 dark:text-white">Reset your password</h1>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">Enter your email address and we'll send you a link to reset your password.</p>
 
           {message ? (
             <div className="flex flex-col gap-4">
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-sm">
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-xs font-medium">
                 {message}
               </div>
-              <Link href="/login" className="btn-primary text-center">
-                Back to Sign In
-              </Link>
+              <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.01 }} whileTap={shouldReduceMotion ? {} : { scale: 0.99 }}>
+                <Link href="/login" className="btn-primary text-center w-full block h-9 text-xs flex items-center justify-center shadow-md">
+                  Back to Sign In
+                </Link>
+              </motion.div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div>
-                <label className="label">Email Address</label>
+                <label className="label text-xs">Email Address</label>
                 <input
-                  className="input"
+                  className="input h-9 text-xs"
                   type="email"
                   required
                   value={email}
@@ -60,19 +75,24 @@ export default function ForgotPasswordPage() {
                   placeholder="you@business.com"
                 />
               </div>
-              {error && <p className="text-sm text-danger">{error}</p>}
-              <button type="submit" disabled={loading} className="btn-primary mt-2">
-                {loading ? "Sending reset link…" : "Send Reset Link"}
-              </button>
+              
+              {error && <p className="text-xs text-red-500 font-semibold">{error}</p>}
+              
+              <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.01 }} whileTap={shouldReduceMotion ? {} : { scale: 0.99 }} className="w-full mt-2">
+                <button type="submit" disabled={loading} className="btn-primary w-full h-9 text-xs hover:shadow-premium shadow-md">
+                  {loading ? "Sending reset link…" : "Send Reset Link"}
+                </button>
+              </motion.div>
+              
               <div className="text-center mt-2">
-                <Link href="/login" className="text-xs text-accent hover:underline">
+                <Link href="/login" className="text-xs text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:underline font-semibold transition-colors">
                   Remember your password? Sign in
                 </Link>
               </div>
             </form>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

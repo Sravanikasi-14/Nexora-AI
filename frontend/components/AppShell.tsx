@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, setToken, setBusinessId, setStoredUser, getStoredUser, getBusinessId } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
   Mic,
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const shouldReduceMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -253,7 +255,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main Page Content Body Area */}
       <main className="flex-1 min-w-0 overflow-y-auto">
-        <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8">{children}</div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={pathname}
+            initial={shouldReduceMotion ? {} : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={shouldReduceMotion ? {} : { opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8"
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
       </main>
     </div>
   );

@@ -11,12 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
+import { motion, useReducedMotion } from "framer-motion";
 
 const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
 function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const shouldReduceMotion = useReducedMotion();
 
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState("");
@@ -241,13 +243,22 @@ function AuthForm() {
 
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 flex items-center justify-center px-6">
-        <div className="w-full max-w-sm">
-          <Link href="/" className="flex items-center gap-2 justify-center mb-6">
-            <div className="w-7 h-7 rounded bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center font-display font-bold text-white dark:text-zinc-900 text-sm shadow">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 flex items-center justify-center px-6 py-16">
+        <motion.div
+          initial={shouldReduceMotion ? {} : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="w-full max-w-sm"
+        >
+          <Link href="/" className="flex items-center gap-2 justify-center mb-8">
+            <motion.div
+              whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
+              className="w-8 h-8 rounded bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center font-display font-bold text-white dark:text-zinc-900 text-sm shadow"
+            >
               N
-            </div>
-            <span className="font-display font-semibold text-base">Nexora</span>
+            </motion.div>
+            <span className="font-display font-semibold text-lg tracking-tight">Nexora</span>
           </Link>
 
           {/* Selector Tabs */}
@@ -258,7 +269,7 @@ function AuthForm() {
                 setError(null);
                 router.replace("/login");
               }}
-              className={`flex-1 text-center py-1.5 text-xs font-semibold rounded-md transition-all ${
+              className={`flex-1 text-center py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
                 !isRegister ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"
               }`}
             >
@@ -270,7 +281,7 @@ function AuthForm() {
                 setError(null);
                 router.replace("/login?tab=register");
               }}
-              className={`flex-1 text-center py-1.5 text-xs font-semibold rounded-md transition-all ${
+              className={`flex-1 text-center py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
                 isRegister ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 shadow-sm" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"
               }`}
             >
@@ -278,12 +289,12 @@ function AuthForm() {
             </button>
           </div>
 
-          <Card className="border border-zinc-200 dark:border-zinc-800 shadow-premium">
+          <Card className="border border-zinc-250 dark:border-zinc-850 shadow-glow bg-white dark:bg-zinc-950">
             <CardHeader className="space-y-1 p-6 pb-4">
-              <CardTitle className="text-xl">
+              <CardTitle className="text-xl font-bold tracking-tight">
                 {isRegister ? "Create your account" : "Welcome back"}
               </CardTitle>
-              <CardDescription className="text-xs">
+              <CardDescription className="text-xs text-zinc-500 dark:text-zinc-400">
                 {isRegister ? "Set up your credentials to get started." : "Sign in to continue growing your business."}
               </CardDescription>
             </CardHeader>
@@ -291,31 +302,33 @@ function AuthForm() {
               <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                 {isRegister && (
                   <div>
-                    <Label>Full Name</Label>
+                    <Label className="text-xs">Full Name</Label>
                     <Input
                       type="text"
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Jane Doe"
+                      className="h-9 text-xs"
                     />
                   </div>
                 )}
 
                 <div>
-                  <Label>Email Address</Label>
+                  <Label className="text-xs">Email Address</Label>
                   <Input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@business.com"
+                    className="h-9 text-xs"
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between">
-                    <Label className="mb-1.5">Password</Label>
+                    <Label className="mb-1.5 text-xs">Password</Label>
                     {!isRegister && (
                       <Link href="/forgot-password" className="text-xs text-zinc-500 hover:underline mb-1.5 font-medium">
                         Forgot Password?
@@ -329,7 +342,7 @@ function AuthForm() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="pr-10"
+                      className="pr-10 h-9 text-xs"
                     />
                     <button
                       type="button"
@@ -344,7 +357,7 @@ function AuthForm() {
                 {isRegister && (
                   <>
                     <div>
-                      <Label>Confirm Password</Label>
+                      <Label className="text-xs">Confirm Password</Label>
                       <div className="relative">
                         <Input
                           type={showConfirmPassword ? "text" : "password"}
@@ -352,7 +365,7 @@ function AuthForm() {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="pr-10"
+                          className="pr-10 h-9 text-xs"
                         />
                         <button
                           type="button"
@@ -364,31 +377,31 @@ function AuthForm() {
                       </div>
                     </div>
 
-                    <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-md p-3 text-[11px] flex flex-col gap-1.5">
+                    <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-md p-3 text-[11px] flex flex-col gap-1.5 text-left">
                       <p className="font-semibold uppercase tracking-wider text-zinc-400 text-[10px] mb-1">Password Rules</p>
                       <div className="flex items-center gap-1.5">
-                        <span className={checks.length ? "text-emerald-500 font-semibold" : "text-zinc-400"}>✓</span>
-                        <span className={checks.length ? "text-zinc-900 dark:text-zinc-150" : "text-zinc-400"}>Min 8 characters</span>
+                        <span className={checks.length ? "text-emerald-500 font-semibold" : "text-zinc-450"}>✓</span>
+                        <span className={checks.length ? "text-zinc-800 dark:text-zinc-200" : "text-zinc-450"}>Min 8 characters</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className={checks.uppercase ? "text-emerald-500 font-semibold" : "text-zinc-400"}>✓</span>
-                        <span className={checks.uppercase ? "text-zinc-900 dark:text-zinc-150" : "text-zinc-400"}>At least 1 uppercase</span>
+                        <span className={checks.uppercase ? "text-emerald-500 font-semibold" : "text-zinc-450"}>✓</span>
+                        <span className={checks.uppercase ? "text-zinc-800 dark:text-zinc-200" : "text-zinc-450"}>At least 1 uppercase letter</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className={checks.lowercase ? "text-emerald-500 font-semibold" : "text-zinc-400"}>✓</span>
-                        <span className={checks.lowercase ? "text-zinc-900 dark:text-zinc-150" : "text-zinc-400"}>At least 1 lowercase</span>
+                        <span className={checks.lowercase ? "text-emerald-500 font-semibold" : "text-zinc-450"}>✓</span>
+                        <span className={checks.lowercase ? "text-zinc-800 dark:text-zinc-200" : "text-zinc-450"}>At least 1 lowercase letter</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className={checks.number ? "text-emerald-500 font-semibold" : "text-zinc-400"}>✓</span>
-                        <span className={checks.number ? "text-zinc-900 dark:text-zinc-150" : "text-zinc-400"}>At least 1 number</span>
+                        <span className={checks.number ? "text-emerald-500 font-semibold" : "text-zinc-450"}>✓</span>
+                        <span className={checks.number ? "text-zinc-800 dark:text-zinc-200" : "text-zinc-450"}>At least 1 number</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className={checks.special ? "text-emerald-500 font-semibold" : "text-zinc-400"}>✓</span>
-                        <span className={checks.special ? "text-zinc-900 dark:text-zinc-150" : "text-zinc-400"}>At least 1 special char (@$!%*?&)</span>
+                        <span className={checks.special ? "text-emerald-500 font-semibold" : "text-zinc-450"}>✓</span>
+                        <span className={checks.special ? "text-zinc-800 dark:text-zinc-200" : "text-zinc-450"}>At least 1 special char (@$!%*?&)</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className={checks.match ? "text-emerald-500 font-semibold" : "text-zinc-400"}>✓</span>
-                        <span className={checks.match ? "text-zinc-900 dark:text-zinc-150" : "text-zinc-400"}>Passwords match</span>
+                        <span className={checks.match ? "text-emerald-500 font-semibold" : "text-zinc-450"}>✓</span>
+                        <span className={checks.match ? "text-zinc-800 dark:text-zinc-200" : "text-zinc-450"}>Passwords match</span>
                       </div>
                     </div>
                   </>
@@ -415,9 +428,11 @@ function AuthForm() {
                   </Alert>
                 )}
                 
-                <Button type="submit" isLoading={loading} className="w-full mt-2" disabled={isRegister && !isRegisterFormValid}>
-                  {isRegister ? "Create Account" : "Sign In"}
-                </Button>
+                <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.01 }} whileTap={shouldReduceMotion ? {} : { scale: 0.99 }} className="w-full mt-2">
+                  <Button type="submit" isLoading={loading} className="w-full h-9 text-xs hover:shadow-premium shadow-md transition-all duration-150" disabled={isRegister && !isRegisterFormValid}>
+                    {isRegister ? "Create Account" : "Sign In"}
+                  </Button>
+                </motion.div>
               </form>
 
               {/* Social Google Sign-In */}
@@ -439,7 +454,7 @@ function AuthForm() {
                       <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1.5 leading-none">
                         ⚠️ Google OAuth is Disabled
                       </p>
-                      <p className="text-[9px] text-zinc-500 dark:text-zinc-400 mt-1.5 leading-normal max-w-xs mx-auto">
+                      <p className="text-[9px] text-zinc-550 dark:text-zinc-450 mt-1.5 leading-normal max-w-xs mx-auto text-center">
                         Add `NEXT_PUBLIC_GOOGLE_CLIENT_ID` to your local environment file (`frontend/.env.local`) to activate Google Sign-In options.
                       </p>
                     </div>
@@ -447,24 +462,25 @@ function AuthForm() {
                 </div>
               </div>
 
-
               {/* Try Nexora for Demo Business Option */}
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2">
-                <p className="text-[10px] text-zinc-400 text-center font-medium">Want to explore before creating an account?</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleDemoLogin}
-                  disabled={loading}
-                  className="w-full text-xs font-semibold h-9"
-                >
-                  🚀 Try Nexora with a demo business
-                </Button>
+                <p className="text-[10px] text-zinc-450 dark:text-zinc-550 text-center font-medium">Want to explore before creating an account?</p>
+                <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.01 }} whileTap={shouldReduceMotion ? {} : { scale: 0.99 }}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleDemoLogin}
+                    disabled={loading}
+                    className="w-full text-xs font-semibold h-9 shadow-sm hover:shadow-premium"
+                  >
+                    🚀 Try Nexora with a demo business
+                  </Button>
+                </motion.div>
               </div>
             </CardContent>
           </Card>
 
-          <p className="text-center text-xs text-zinc-500 dark:text-zinc-400 mt-5 font-medium">
+          <p className="text-center text-xs text-zinc-550 dark:text-zinc-400 mt-6 font-medium">
             {isRegister ? (
               <>
                 Already have an account?{" "}
@@ -481,7 +497,7 @@ function AuthForm() {
               </>
             )}
           </p>
-        </div>
+        </motion.div>
       </div>
     </GoogleOAuthProvider>
   );

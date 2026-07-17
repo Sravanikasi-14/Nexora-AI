@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, setBusinessId, ApiError } from "@/lib/api";
 import { Business } from "@/lib/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 type FormState = {
   businessId?: string;
@@ -54,6 +57,7 @@ function DiscoveryPageContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
+  const shouldReduceMotion = useReducedMotion();
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -116,7 +120,7 @@ function DiscoveryPageContent() {
       });
       setBusinessId(biz.id);
     }
-  }, [data, token, fetchError, isDemo, router]);
+  }, [data, token, fetchError, isDemo, router, searchParams]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -171,7 +175,6 @@ function DiscoveryPageContent() {
   async function handleFinish() {
     const id = await persist(true);
     if (!id) return;
-    // Invalidate cached business session & assessment data
     queryClient.invalidateQueries({ queryKey: ["businessMe"] });
     queryClient.invalidateQueries({ queryKey: ["assessment", id] });
     router.push("/assessment");
@@ -197,100 +200,129 @@ function DiscoveryPageContent() {
   }
 
   if (checking) {
-    return <div className="min-h-screen bg-base flex items-center justify-center text-muted">Loading…</div>;
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center gap-3 text-zinc-500">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs">Verifying profile setup…</p>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-base text-ink">
-      <div className="max-w-2xl mx-auto px-6 py-14">
-        <div className="mb-8">
-          <p className="text-sm text-accent font-medium mb-1">AI Business Discovery</p>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Let&apos;s get to know your business</h1>
-          <p className="text-muted mt-2 leading-relaxed">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50">
+      <div className="max-w-2xl mx-auto px-6 py-16">
+        <motion.div
+          initial={shouldReduceMotion ? {} : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="mb-8 text-left"
+        >
+          <p className="text-xs text-accent font-bold uppercase tracking-wider mb-1">AI Business Discovery</p>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">Let&apos;s get to know your business</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed text-xs">
             Share whatever you&apos;re comfortable with. Only business name and industry are required — you can skip
             everything else and add it later.
           </p>
-        </div>
+        </motion.div>
 
         {/* Demo walkthrough banner */}
         {isDemo && (
-          <div className="mb-6 bg-accent/15 border border-accent/25 rounded-2xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          <motion.div
+            initial={shouldReduceMotion ? {} : { opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.35 }}
+            className="mb-6 bg-accent/15 border border-accent/25 rounded-2xl p-4 flex items-center gap-3"
+          >
             <span className="text-xl">💡</span>
-            <div>
-              <h4 className="font-semibold text-ink text-xs">Demo walkthrough</h4>
-              <p className="text-muted text-[11px] mt-0.5">
+            <div className="text-left">
+              <h4 className="font-bold text-zinc-900 dark:text-white text-xs">Demo walkthrough</h4>
+              <p className="text-zinc-550 dark:text-zinc-400 text-[11px] mt-0.5">
                 These answers are pre-filled from your real seeded business. Feel free to edit anything, then click through the steps to continue.
               </p>
             </div>
-          </div>
+          </motion.div>
         )}
 
-        <div className="flex items-center gap-2 mb-8">
+        <div className="flex items-center gap-2 mb-8 select-none">
           {STEPS.map((s, i) => (
             <div key={s} className="flex-1">
-              <div className={`h-1 rounded-full ${i <= step ? "bg-accent" : "bg-surface2"}`} />
-              <p className={`text-xs mt-1.5 ${i === step ? "text-ink" : "text-muted"}`}>{s}</p>
+              <div className="h-1 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden relative">
+                {i <= step && (
+                  <motion.div
+                    layoutId="activeStepBar"
+                    className="absolute inset-0 bg-accent rounded-full"
+                    transition={{ duration: 0.35 }}
+                  />
+                )}
+              </div>
+              <p className={`text-[9px] uppercase font-bold tracking-wider mt-2 transition-colors duration-200 ${i === step ? "text-accent" : "text-zinc-400"}`}>{s}</p>
             </div>
           ))}
         </div>
 
-        <div className="card p-7">
+        <motion.div
+          key={step}
+          initial={shouldReduceMotion ? {} : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="card p-7 border border-zinc-250 dark:border-zinc-850 shadow-glow bg-white dark:bg-zinc-950 rounded-xl"
+        >
           {step === 0 && (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 text-left">
               <div>
-                <label className="label">Business name *</label>
-                <input className="input" value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Coastal Coffee Co." />
+                <label className="label text-xs">Business name *</label>
+                <input className="input h-9 text-xs" value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Coastal Coffee Co." />
               </div>
               <div>
-                <label className="label">Industry *</label>
-                <input className="input" value={form.industry} onChange={(e) => update("industry", e.target.value)} placeholder="e.g. Food & Beverage" />
+                <label className="label text-xs">Industry *</label>
+                <input className="input h-9 text-xs" value={form.industry} onChange={(e) => update("industry", e.target.value)} placeholder="e.g. Food & Beverage" />
               </div>
               <div>
-                <label className="label">Category (optional)</label>
-                <input className="input" value={form.category} onChange={(e) => update("category", e.target.value)} placeholder="e.g. Café / Retail" />
+                <label className="label text-xs">Category (optional)</label>
+                <input className="input h-9 text-xs" value={form.category} onChange={(e) => update("category", e.target.value)} placeholder="e.g. Café / Retail" />
               </div>
             </div>
           )}
 
           {step === 1 && (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 text-left">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="label">Location</label>
-                  <input className="input" value={form.location} onChange={(e) => update("location", e.target.value)} placeholder="City, Country" />
+                  <label className="label text-xs">Location</label>
+                  <input className="input h-9 text-xs" value={form.location} onChange={(e) => update("location", e.target.value)} placeholder="City, Country" />
                 </div>
                 <div>
-                  <label className="label">Employees</label>
-                  <input className="input" value={form.employees} onChange={(e) => update("employees", e.target.value)} placeholder="e.g. 5-10" />
+                  <label className="label text-xs">Employees</label>
+                  <input className="input h-9 text-xs" value={form.employees} onChange={(e) => update("employees", e.target.value)} placeholder="e.g. 5-10" />
                 </div>
               </div>
               <div>
-                <label className="label">Years in business</label>
-                <input className="input" value={form.yearsInBusiness} onChange={(e) => update("yearsInBusiness", e.target.value)} placeholder="e.g. 3" />
+                <label className="label text-xs">Years in business</label>
+                <input className="input h-9 text-xs" value={form.yearsInBusiness} onChange={(e) => update("yearsInBusiness", e.target.value)} placeholder="e.g. 3" />
               </div>
               <div>
-                <label className="label">Products</label>
-                <input className="input" value={form.products} onChange={(e) => update("products", e.target.value)} placeholder="Comma separated" />
+                <label className="label text-xs">Products</label>
+                <input className="input h-9 text-xs" value={form.products} onChange={(e) => update("products", e.target.value)} placeholder="Comma separated" />
               </div>
               <div>
-                <label className="label">Services</label>
-                <input className="input" value={form.services} onChange={(e) => update("services", e.target.value)} placeholder="Comma separated" />
+                <label className="label text-xs">Services</label>
+                <input className="input h-9 text-xs" value={form.services} onChange={(e) => update("services", e.target.value)} placeholder="Comma separated" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="label">Avg. daily sales</label>
-                  <input className="input" type="number" value={form.avgDailySales} onChange={(e) => update("avgDailySales", e.target.value)} placeholder="Optional" />
+                  <label className="label text-xs">Avg. daily sales</label>
+                  <input className="input h-9 text-xs" type="number" value={form.avgDailySales} onChange={(e) => update("avgDailySales", e.target.value)} placeholder="Optional" />
                 </div>
                 <div>
-                  <label className="label">Avg. monthly revenue</label>
-                  <input className="input" type="number" value={form.avgMonthlyRevenue} onChange={(e) => update("avgMonthlyRevenue", e.target.value)} placeholder="Optional" />
+                  <label className="label text-xs">Avg. monthly revenue</label>
+                  <input className="input h-9 text-xs" type="number" value={form.avgMonthlyRevenue} onChange={(e) => update("avgMonthlyRevenue", e.target.value)} placeholder="Optional" />
                 </div>
               </div>
             </div>
           )}
 
           {step === 2 && (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 text-left">
               {[
                 ["googleBusiness", "Google Business Profile name"],
                 ["instagram", "Instagram handle"],
@@ -300,9 +332,9 @@ function DiscoveryPageContent() {
                 ["linkedin", "LinkedIn"],
               ].map(([key, label]) => (
                 <div key={key}>
-                  <label className="label">{label}</label>
+                  <label className="label text-xs">{label}</label>
                   <input
-                    className="input"
+                    className="input h-9 text-xs"
                     value={form[key as keyof FormState] as string}
                     onChange={(e) => update(key as keyof FormState, e.target.value)}
                     placeholder="Optional"
@@ -313,22 +345,26 @@ function DiscoveryPageContent() {
           )}
 
           {step === 3 && (
-            <div className="flex flex-col gap-5">
-              <p className="text-sm text-muted -mt-1">
+            <div className="flex flex-col gap-5 text-left">
+              <p className="text-xs text-zinc-500 leading-relaxed -mt-1">
                 Upload CSVs if you have them — this is what unlocks real growth analysis. All optional.
               </p>
               {[
-                ["customer", "Customer list CSV", "name, phone, email, notes"],
-                ["sales", "Sales / invoice CSV", "customer_name, amount, product, date"],
-                ["product", "Product catalog CSV", "name, price, units_sold"],
-              ].map(([type, label, cols]) => (
-                <div key={type} className="border border-border rounded-xl p-4">
+                ["customer", "Customer list CSV", "name, phone, email, notes", "border-l-blue-500"],
+                ["sales", "Sales / invoice CSV", "customer_name, amount, product, date", "border-l-[var(--accent2)]"],
+                ["product", "Product catalog CSV", "name, price, units_sold", "border-l-[var(--accent)]"],
+              ].map(([type, label, cols, borderL]) => (
+                <div key={type} className={`border border-zinc-200 dark:border-zinc-850 rounded-xl p-4 border-l-4 ${borderL} shadow-sm flex flex-col justify-between`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-sm">{label}</p>
-                      <p className="text-xs text-muted mt-0.5">Columns: {cols}</p>
+                      <p className="font-bold text-xs text-zinc-900 dark:text-zinc-100">{label}</p>
+                      <p className="text-[10px] text-zinc-550 dark:text-zinc-500 mt-0.5 font-medium">Columns: {cols}</p>
                     </div>
-                    <label className="btn-secondary text-sm cursor-pointer">
+                    <motion.label
+                      whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
+                      whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
+                      className="btn-secondary text-[11px] cursor-pointer shadow-sm py-1.5 px-3 rounded-md border border-zinc-200 dark:border-zinc-800 transition duration-150 inline-block font-semibold"
+                    >
                       Choose file
                       <input
                         type="file"
@@ -339,20 +375,20 @@ function DiscoveryPageContent() {
                           if (file) handleUpload(type as "customer" | "sales" | "product", file);
                         }}
                       />
-                    </label>
+                    </motion.label>
                   </div>
-                  {uploadStatus[type] && <p className="text-xs text-accent2 mt-2">{uploadStatus[type]}</p>}
+                  {uploadStatus[type] && <p className="text-[10px] text-emerald-500 font-bold mt-2">{uploadStatus[type]}</p>}
                 </div>
               ))}
             </div>
           )}
 
           {step === 4 && (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 text-left">
               <div>
-                <label className="label">What are your business goals right now?</label>
+                <label className="label text-xs">What are your business goals right now?</label>
                 <textarea
-                  className="input min-h-[120px]"
+                  className="input min-h-[120px] text-xs py-2"
                   value={form.goals}
                   onChange={(e) => update("goals", e.target.value)}
                   placeholder="e.g. Increase repeat customers, grow Instagram following, launch a new product line…"
@@ -361,27 +397,32 @@ function DiscoveryPageContent() {
             </div>
           )}
 
-          {error && <p className="text-sm text-danger mt-4">{error}</p>}
+          {error && <p className="text-xs text-red-500 font-semibold mt-4 text-left">{error}</p>}
 
           <div className="flex items-center justify-between mt-7">
             <button
-              className="btn-ghost"
+              className="btn-ghost text-xs"
               disabled={step === 0}
               onClick={() => setStep((s) => Math.max(0, s - 1))}
             >
               Back
             </button>
+            
             {step < STEPS.length - 1 ? (
-              <button className="btn-primary" disabled={saving} onClick={handleNext}>
-                {saving ? "Saving…" : "Continue"}
-              </button>
+              <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.01 }} whileTap={shouldReduceMotion ? {} : { scale: 0.99 }}>
+                <Button size="sm" className="shadow-md hover:shadow-premium text-xs" disabled={saving} onClick={handleNext}>
+                  {saving ? "Saving…" : "Continue"}
+                </Button>
+              </motion.div>
             ) : (
-              <button className="btn-primary" disabled={saving} onClick={handleFinish}>
-                {saving ? "Finishing…" : "Run Business Assessment"}
-              </button>
+              <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.01 }} whileTap={shouldReduceMotion ? {} : { scale: 0.99 }}>
+                <Button size="sm" className="shadow-md hover:shadow-premium text-xs" disabled={saving} onClick={handleFinish}>
+                  {saving ? "Finishing…" : "Run Business Assessment"}
+                </Button>
+              </motion.div>
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
@@ -389,7 +430,12 @@ function DiscoveryPageContent() {
 
 export default function DiscoveryPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-base flex items-center justify-center text-muted">Loading…</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center gap-3 text-zinc-500">
+        <Spinner size="lg" />
+        <p className="text-xs">Loading onboarding…</p>
+      </div>
+    }>
       <DiscoveryPageContent />
     </Suspense>
   );
