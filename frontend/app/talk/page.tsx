@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { api } from "@/lib/api";
 import { getBusinessId } from "@/lib/api";
-import { Mic, MicOff, Square, Volume2, VolumeX, History, Send, ArrowRight, Play, Check } from "lucide-react";
+import { Mic, MicOff, Square, Volume2, VolumeX, History, Send, ArrowRight, Play } from "lucide-react";
 
 interface VoiceHistoryItem {
   question: string;
@@ -59,12 +59,12 @@ export default function TalkPage() {
     }
   }, []);
 
-  // Save history to localStorage
-  const saveToHistory = (item: VoiceHistoryItem) => {
-    const updated = [item, ...history].slice(0, 30);
+  // Save history to localStorage (Memoized to prevent closures overhead)
+  const saveToHistory = useCallback((item: VoiceHistoryItem, currentHistory: VoiceHistoryItem[]) => {
+    const updated = [item, ...currentHistory].slice(0, 30);
     setHistory(updated);
     localStorage.setItem("nexora_voice_history", JSON.stringify(updated));
-  };
+  }, []);
 
   // Thinking messages cycler
   useEffect(() => {
@@ -99,8 +99,8 @@ export default function TalkPage() {
     };
   }, []);
 
-  // Parse Markdown headers into specific UI sections
-  const parseResponse = (text: string) => {
+  // Parse Markdown headers into specific UI sections (Memoized)
+  const parseResponse = useCallback((text: string) => {
     const parts = {
       summary: "",
       recommendations: [] as string[],
@@ -146,16 +146,15 @@ export default function TalkPage() {
     }
 
     return parts;
-  };
+  }, []);
 
-  // Speak AI output
-  const speakText = (text: string) => {
+  // Speak AI output (Memoized)
+  const speakText = useCallback((text: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
 
     if (!soundEnabled) return;
 
-    // Speak only the first 1-2 sentences of the summary to keep vocal responses natural and snappy
     const parsed = parseResponse(text);
     const cleanSummary = parsed.summary.replace(/\s+/g, " ").trim();
     const sentences = cleanSummary.match(/[^.!?]+[.!?]+(\s|$)/g) || [cleanSummary];
@@ -165,7 +164,6 @@ export default function TalkPage() {
     utteranceRef.current = utterance;
     setStatus("speaking");
 
-    // Match vocal styles
     const voices = window.speechSynthesis.getVoices();
     const premiumVoice = voices.find(
       (v) =>
@@ -182,10 +180,10 @@ export default function TalkPage() {
     };
 
     window.speechSynthesis.speak(utterance);
-  };
+  }, [soundEnabled, parseResponse]);
 
-  // Trigger processing of voice transcription
-  const processQuery = async (queryText: string) => {
+  // Trigger processing of voice transcription (Memoized)
+  const processQuery = useCallback(async (queryText: string) => {
     if (!queryText.trim()) {
       setStatus("idle");
       return;
@@ -209,16 +207,14 @@ export default function TalkPage() {
       const parsed = parseResponse(responseText);
       setAiResponse(parsed);
 
-      // Save to local history
       const historyItem: VoiceHistoryItem = {
         question: queryText,
         answerText: responseText,
         parsed,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
-      saveToHistory(historyItem);
+      saveToHistory(historyItem, history);
 
-      // Start text-to-speech output
       if (soundEnabled) {
         speakText(responseText);
       } else {
@@ -228,10 +224,10 @@ export default function TalkPage() {
       console.error("AI Core processing failed:", e);
       setStatus("idle");
     }
-  };
+  }, [history, soundEnabled, parseResponse, speakText, saveToHistory]);
 
-  // Toggle Microphone Stream
-  const toggleListening = () => {
+  // Toggle Microphone Stream (Memoized)
+  const toggleListening = useCallback(() => {
     if (typeof window === "undefined") return;
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -240,7 +236,6 @@ export default function TalkPage() {
       return;
     }
 
-    // Stop speaking if active
     if (status === "speaking") {
       window.speechSynthesis.cancel();
       setStatus("idle");
@@ -303,18 +298,18 @@ export default function TalkPage() {
     };
 
     recognition.start();
-  };
+  }, [status, processQuery]);
 
-  // Manual suggestion click handler
-  const handleSuggestionClick = (suggestion: string) => {
+  // Manual suggestion click handler (Memoized)
+  const handleSuggestionClick = useCallback((suggestion: string) => {
     if (status === "listening" || status === "thinking") return;
     setTranscript(suggestion);
     finalTranscriptRef.current = suggestion;
     processQuery(suggestion);
-  };
+  }, [status, processQuery]);
 
-  // Manual typed input submit handler
-  const handleManualSubmit = (e: React.FormEvent) => {
+  // Manual typed input submit handler (Memoized)
+  const handleManualSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!manualInput.trim() || status === "thinking" || status === "listening") return;
 
@@ -326,16 +321,16 @@ export default function TalkPage() {
     finalTranscriptRef.current = manualInput;
     processQuery(manualInput);
     setManualInput("");
-  };
+  }, [manualInput, status, processQuery]);
 
-  // Replay voice answers from history
-  const loadHistoryItem = (item: VoiceHistoryItem) => {
+  // Replay voice answers from history (Memoized)
+  const loadHistoryItem = useCallback((item: VoiceHistoryItem) => {
     setTranscript(item.question);
     setAiResponse(item.parsed);
     setCurrentRawText(item.answerText);
     setHistoryOpen(false);
     speakText(item.answerText);
-  };
+  }, [speakText]);
 
   return (
     <AppShell>
@@ -357,65 +352,68 @@ export default function TalkPage() {
         }
       `}</style>
 
-      <div className="relative flex flex-col min-h-[calc(100vh-8rem)]">
+      <div className="relative flex flex-col min-h-[calc(100vh-8rem)] text-left">
         {/* Top bar controls */}
-        <div className="flex items-center justify-between pb-4 border-b border-border mb-6">
+        <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800 mb-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Talk with Nexora</h1>
-            <p className="text-sm text-muted">Nexora Voice Business Assistant</p>
+            <p className="text-xs text-zinc-500">Nexora Voice Business Assistant</p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`p-2.5 rounded-xl border border-border transition-all flex items-center justify-center ${
-                soundEnabled ? "bg-accent/10 text-accent border-accent/20" : "bg-surface hover:bg-surface2 text-muted"
+              className={`p-2.5 rounded-md border border-zinc-200 dark:border-zinc-800 transition-all flex items-center justify-center ${
+                soundEnabled ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700" : "bg-transparent text-zinc-400"
               }`}
               title={soundEnabled ? "Mute Voice Out" : "Enable Voice Out"}
+              type="button"
             >
-              {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+              {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
             <button
               onClick={() => setHistoryOpen(!historyOpen)}
-              className="p-2.5 rounded-xl border border-border bg-surface hover:bg-surface2 text-ink transition-all flex items-center justify-center gap-2"
+              className="p-2.5 rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all flex items-center justify-center gap-2"
               title="Recent Conversations"
+              type="button"
             >
-              <History size={20} />
-              <span className="text-sm font-medium hidden sm:inline">History</span>
+              <History size={18} />
+              <span className="text-xs font-semibold hidden sm:inline">History</span>
             </button>
           </div>
         </div>
 
         {/* Central conversational view container */}
         <div className="flex-1 flex flex-col items-center justify-center py-6 max-w-3xl mx-auto w-full">
-          {/* State 1: Idle (Mic + suggest chips) */}
+          {/* State 1: Idle */}
           {status === "idle" && !aiResponse && (
             <div className="text-center flex flex-col items-center gap-6 animate-fade-in w-full">
               <div className="relative group">
-                <div className="absolute inset-0 bg-accent/20 rounded-full blur-2xl group-hover:bg-accent/30 transition duration-300" />
+                <div className="absolute inset-0 bg-zinc-900/10 dark:bg-zinc-50/10 rounded-full blur-2xl group-hover:bg-zinc-900/20 transition duration-300 animate-orb-glow" />
                 <button
                   onClick={toggleListening}
-                  className="relative w-28 h-28 rounded-full bg-[#12161A] hover:bg-[#181F27] border border-white/10 hover:border-accent/30 flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
+                  className="relative w-24 h-24 rounded-full bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center shadow-premium transition-all duration-300 hover:scale-105 active:scale-95"
+                  type="button"
                 >
-                  <Mic size={42} className="text-accent" />
+                  <Mic size={36} className="text-white dark:text-zinc-900" />
                 </button>
               </div>
-              <div className="space-y-2">
-                <h2 className="text-xl font-medium">Talk with Nexora</h2>
-                <p className="text-sm text-muted max-w-md mx-auto">
-                  Ask anything about your business or Nexora. I'll analyze your data and guide you.
+              <div className="space-y-1 mt-2">
+                <h2 className="text-lg font-semibold">Talk with Nexora</h2>
+                <p className="text-xs text-zinc-500 max-w-xs mx-auto leading-relaxed">
+                  Ask anything about your business or Nexora. I&apos;ll analyze your data and guide you.
                 </p>
               </div>
 
               {/* Suggestions Grid */}
               <div className="w-full mt-6 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted text-center">Suggested queries</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Suggested queries</p>
                 <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
                   {SUGGESTIONS.map((item) => (
                     <button
                       key={item}
                       onClick={() => handleSuggestionClick(item)}
-                      className="px-3.5 py-2 text-xs font-medium bg-[#12161A] hover:bg-[#181F27] border border-white/5 hover:border-white/20 rounded-full transition-all duration-200"
-                      style={{ color: "#cbd5e1" }}
+                      className="px-3.5 py-1.5 text-xs font-semibold bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900/50 dark:hover:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full transition-colors"
+                      type="button"
                     >
                       {item}
                     </button>
@@ -425,97 +423,95 @@ export default function TalkPage() {
             </div>
           )}
 
-          {/* State 2: Listening (Pulsing microphone + live transcript) */}
+          {/* State 2: Listening */}
           {status === "listening" && (
             <div className="text-center flex flex-col items-center gap-8 w-full py-10">
               <div className="relative">
-                {/* Massive glowing rings */}
-                <div className="absolute -inset-8 bg-danger/30 rounded-full blur-2xl animate-ping opacity-75" />
-                <div className="absolute -inset-4 bg-danger/20 rounded-full blur-xl animate-orb-glow" />
+                <div className="absolute -inset-8 bg-red-500/10 rounded-full blur-2xl animate-ping opacity-75" />
+                <div className="absolute -inset-4 bg-red-500/20 rounded-full blur-xl animate-orb-glow" />
                 <button
                   onClick={toggleListening}
-                  className="relative w-44 h-44 rounded-full bg-danger text-white flex items-center justify-center shadow-2xl shadow-danger/50 border-4 border-white/20 transition-transform duration-300 hover:scale-105 active:scale-95"
+                  className="relative w-36 h-36 rounded-full bg-red-500 text-white flex items-center justify-center shadow-xl border-4 border-white/20 transition-transform duration-300 hover:scale-105 active:scale-95"
+                  type="button"
                 >
-                  <MicOff size={64} />
+                  <MicOff size={48} />
                 </button>
               </div>
               <div className="flex flex-col items-center gap-3">
-                <span className="text-xl font-bold tracking-widest text-danger uppercase animate-pulse">
+                <span className="text-sm font-bold tracking-widest text-red-500 uppercase animate-pulse">
                   🔴 Live Listening
                 </span>
-                {/* Waveform Bar simulation */}
-                <div className="flex items-center justify-center gap-2 h-16 mt-2">
-                  <span className="w-2 bg-danger rounded-full animate-waveform-bar" style={{ height: '24px', animationDelay: '0.1s' }} />
-                  <span className="w-2 bg-danger rounded-full animate-waveform-bar" style={{ height: '48px', animationDelay: '0.3s' }} />
-                  <span className="w-2 bg-danger rounded-full animate-waveform-bar" style={{ height: '64px', animationDelay: '0.5s' }} />
-                  <span className="w-2 bg-danger rounded-full animate-waveform-bar" style={{ height: '36px', animationDelay: '0.2s' }} />
-                  <span className="w-2 bg-danger rounded-full animate-waveform-bar" style={{ height: '18px', animationDelay: '0.4s' }} />
+                <div className="flex items-center justify-center gap-2 h-12 mt-2">
+                  <span className="w-1.5 bg-red-500 rounded-full animate-waveform-bar" style={{ height: "24px", animationDelay: "0.1s" }} />
+                  <span className="w-1.5 bg-red-500 rounded-full animate-waveform-bar" style={{ height: "48px", animationDelay: "0.3s" }} />
+                  <span className="w-1.5 bg-red-500 rounded-full animate-waveform-bar" style={{ height: "36px", animationDelay: "0.5s" }} />
+                  <span className="w-1.5 bg-red-500 rounded-full animate-waveform-bar" style={{ height: "18px", animationDelay: "0.2s" }} />
                 </div>
               </div>
-              <div className="w-full max-w-2xl mt-4 px-8 py-6 rounded-3xl bg-[#1a0f0f] border border-danger/30 shadow-inner min-h-[6rem] flex items-center justify-center">
-                <p className="text-danger font-semibold text-lg italic text-center leading-relaxed">
+              <div className="w-full max-w-2xl mt-4 px-8 py-6 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-inner min-h-[6rem] flex items-center justify-center">
+                <p className="text-zinc-800 dark:text-zinc-200 font-semibold text-lg italic text-center leading-relaxed">
                   {transcript || "Speak now, I'm listening..."}
                 </p>
               </div>
             </div>
           )}
 
-          {/* State 3: Thinking (Retrieve database/AI facts) */}
+          {/* State 3: Thinking */}
           {status === "thinking" && (
-            <div className="text-center flex flex-col items-center gap-6 w-full">
-              <div className="w-20 h-20 rounded-full bg-[#12161A] border border-border flex items-center justify-center relative">
-                <div className="absolute inset-0 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                <div className="w-12 h-12 rounded-full bg-base flex items-center justify-center">
-                  <Mic size={24} className="text-muted" />
-                </div>
+            <div className="text-center flex flex-col items-center gap-6 w-full py-12">
+              <div className="w-16 h-16 rounded-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center relative">
+                <div className="absolute inset-0 border-2 border-zinc-900 dark:border-white border-t-transparent rounded-full animate-spin" />
+                <Mic size={24} className="text-zinc-400" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium animate-pulse text-accent">{thinkingMessage}</p>
-                {transcript && <p className="text-xs text-muted max-w-sm mx-auto italic truncate">"{transcript}"</p>}
+                <p className="text-xs font-semibold animate-pulse text-zinc-800 dark:text-zinc-200">{thinkingMessage}</p>
+                {transcript && <p className="text-xs text-zinc-400 max-w-sm mx-auto italic truncate">“{transcript}”</p>}
               </div>
             </div>
           )}
 
-          {/* State 4: Speaking or displaying AI Responses */}
+          {/* State 4: Speaking / UI Responses */}
           {(status === "speaking" || aiResponse) && status !== "thinking" && status !== "listening" && (
-            <div className="w-full flex flex-col gap-6 animate-fade-in">
+            <div className="w-full flex flex-col gap-6 animate-fade-in text-left">
               {/* Transcript tag */}
               <div className="flex items-start gap-3 justify-end w-full">
-                <div className="px-4 py-2.5 rounded-2xl bg-[#12161A] border border-white/5 text-sm max-w-[80%]" style={{ color: "#cbd5e1" }}>
-                  <p className="font-semibold text-xs text-accent uppercase tracking-wider mb-1">Your query</p>
-                  <p className="italic">"{transcript}"</p>
+                <div className="px-4 py-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs max-w-[80%]">
+                  <p className="font-semibold text-[9px] text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">Your query</p>
+                  <p className="italic font-medium text-zinc-800 dark:text-zinc-200">“{transcript}”</p>
                 </div>
               </div>
 
               {/* Response Panel */}
-              <div className="w-full rounded-2xl bg-surface border border-border p-6 shadow-xl space-y-6">
-                <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="w-full rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 p-6 shadow-premium space-y-6">
+                <div className="flex items-center justify-between border-b border-zinc-150 dark:border-zinc-850 pb-4">
                   <div className="flex items-center gap-3">
-                    <div className={`w-11 h-11 rounded-full bg-gradient-to-tr from-accent to-purple-600 flex items-center justify-center font-bold text-white text-base shrink-0 shadow-md border border-accent/20 ${status === 'speaking' ? 'animate-pulse' : ''}`}>
+                    <div className={`w-10 h-10 rounded-full bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center font-bold text-white dark:text-zinc-900 text-sm shrink-0 shadow-premium ${status === "speaking" ? "animate-pulse" : ""}`}>
                       ✨
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg flex items-center gap-1.5">
-                        Nexora <span className="pill text-[9px] bg-accent/10 text-accent font-semibold py-0.5 px-1.5">AI Advisor</span>
+                      <h3 className="font-semibold text-sm flex items-center gap-1.5">
+                        Nexora <span className="pill bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 font-bold text-[9px] uppercase tracking-wider">AI Advisor</span>
                       </h3>
-                      <p className="text-xs text-muted">Grounded in your business data</p>
+                      <p className="text-[10px] text-zinc-450">Grounded in your business data</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {status === "speaking" ? (
                       <button
                         onClick={() => window.speechSynthesis.cancel()}
-                        className="px-3.5 py-1.5 rounded-lg bg-[#12161A] hover:bg-[#181F27] border border-white/5 text-xs font-semibold text-accent transition flex items-center gap-1.5"
+                        className="px-3 py-1.5 rounded-md bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-red-500 transition flex items-center gap-1.5"
+                        type="button"
                       >
-                        <Square size={12} fill="currentColor" /> Stop Speaking
+                        Stop Speaking
                       </button>
                     ) : (
                       currentRawText && (
                         <button
                           onClick={() => speakText(currentRawText)}
-                          className="px-3.5 py-1.5 rounded-lg bg-accent hover:bg-accent/90 text-white text-xs font-semibold transition flex items-center gap-1.5"
+                          className="px-3 py-1.5 rounded-md bg-zinc-900 dark:bg-zinc-50 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-xs font-semibold transition flex items-center gap-1.5"
+                          type="button"
                         >
-                          <Play size={12} fill="currentColor" /> Play Audio
+                          Play Audio
                         </button>
                       )
                     )}
@@ -525,24 +521,22 @@ export default function TalkPage() {
                 {/* Structured Sections */}
                 {aiResponse && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Left block (Summary & Next Action) */}
                     <div className="space-y-4">
-                      <div className="p-4 rounded-xl bg-[#12161A] border border-white/5">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-accent mb-2">Summary</h4>
-                        <p className="text-sm leading-relaxed" style={{ color: "#e2e8f0" }}>{aiResponse.summary}</p>
+                      <div className="p-4 rounded-md bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800">
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-accent mb-2">Summary</h4>
+                        <p className="text-xs leading-relaxed font-medium text-zinc-800 dark:text-zinc-200">{aiResponse.summary}</p>
                       </div>
-                      <div className="p-4 rounded-xl bg-[#12161A] border border-white/5">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-accent mb-2">Next Best Action</h4>
-                        <p className="text-sm leading-relaxed font-semibold" style={{ color: "#e2e8f0" }}>{aiResponse.nextBestAction}</p>
+                      <div className="p-4 rounded-md bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800">
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-accent mb-2">Next Best Action</h4>
+                        <p className="text-xs leading-relaxed font-semibold text-zinc-800 dark:text-zinc-200">{aiResponse.nextBestAction}</p>
                       </div>
                     </div>
 
-                    {/* Right block (Recommendations & Context reasoning) */}
                     <div className="space-y-4">
                       {aiResponse.recommendations.length > 0 && (
-                        <div className="p-4 rounded-xl bg-[#12161A] border border-white/5">
-                          <h4 className="text-xs font-semibold uppercase tracking-wider text-accent mb-2.5">Recommendations</h4>
-                          <ul className="space-y-2 text-sm" style={{ color: "#e2e8f0" }}>
+                        <div className="p-4 rounded-md bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800">
+                          <h4 className="text-[10px] font-bold uppercase tracking-wider text-accent mb-2.5">Recommendations</h4>
+                          <ul className="space-y-2 text-xs text-zinc-700 dark:text-zinc-300 font-medium">
                             {aiResponse.recommendations.map((item, idx) => (
                               <li key={idx} className="flex items-start gap-2">
                                 <span className="text-accent font-bold mt-0.5">•</span>
@@ -552,9 +546,9 @@ export default function TalkPage() {
                           </ul>
                         </div>
                       )}
-                      <div className="p-4 rounded-xl bg-[#12161A] border border-white/5">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-accent mb-2">Why This Matters</h4>
-                        <p className="text-sm leading-relaxed" style={{ color: "#e2e8f0" }}>{aiResponse.whyItMatters}</p>
+                      <div className="p-4 rounded-md bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800">
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-accent mb-2">Why This Matters</h4>
+                        <p className="text-xs leading-relaxed font-medium text-zinc-650 dark:text-zinc-450">{aiResponse.whyItMatters}</p>
                       </div>
                     </div>
                   </div>
@@ -564,10 +558,11 @@ export default function TalkPage() {
                 <div className="flex justify-center pt-2">
                   <button
                     onClick={toggleListening}
-                    className="w-14 h-14 rounded-full bg-accent hover:bg-accent/90 text-white shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95"
+                    className="w-12 h-12 rounded-full bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 shadow-premium"
                     title="Speak again"
+                    type="button"
                   >
-                    <Mic size={24} />
+                    <Mic size={20} className="text-white dark:text-zinc-900" />
                   </button>
                 </div>
               </div>
@@ -576,23 +571,23 @@ export default function TalkPage() {
         </div>
 
         {/* Manual Keyboard Input Fallback */}
-        <div className="max-w-xl mx-auto w-full mt-auto pt-6 border-t border-border/40 pb-4">
-          <form onSubmit={handleManualSubmit} className="flex gap-2 items-center bg-[#12161A] p-2 rounded-2xl border border-white/5 shadow-inner">
+        <div className="max-w-xl mx-auto w-full mt-auto pt-6 border-t border-zinc-200 dark:border-zinc-800 pb-4">
+          <form onSubmit={handleManualSubmit} className="flex gap-2 items-center bg-zinc-50 dark:bg-zinc-900/60 p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-inner">
             <input
               type="text"
               placeholder="Or type your question here if mic fails..."
               value={manualInput}
               onChange={(e) => setManualInput(e.target.value)}
               disabled={status === "thinking" || status === "listening"}
-              className="flex-1 bg-transparent border-none outline-none text-sm text-ink px-4 py-2 placeholder-muted"
+              className="flex-1 bg-transparent border-none outline-none text-xs text-zinc-800 dark:text-zinc-200 px-4 py-2 placeholder-zinc-400"
             />
             <button
               type="submit"
               disabled={!manualInput.trim() || status === "thinking" || status === "listening"}
-              className="w-10 h-10 rounded-xl bg-accent hover:bg-accent/90 text-white flex items-center justify-center transition-all disabled:opacity-50 disabled:hover:bg-accent shrink-0"
+              className="w-9 h-9 rounded-md bg-zinc-900 dark:bg-zinc-50 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 flex items-center justify-center transition-all disabled:opacity-50 shrink-0"
               title="Send question"
             >
-              <Send size={18} />
+              <Send size={16} />
             </button>
           </form>
         </div>
@@ -601,43 +596,45 @@ export default function TalkPage() {
         {historyOpen && (
           <>
             <div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity"
+              className="fixed inset-0 bg-black/45 backdrop-blur-sm z-40 transition-opacity duration-300"
               onClick={() => setHistoryOpen(false)}
             />
-            <div className="fixed inset-y-0 right-0 w-80 bg-surface border-l border-border z-50 flex flex-col p-6 shadow-2xl transition-transform duration-300 animate-slide-in">
-              <div className="flex items-center justify-between pb-4 border-b border-border mb-4">
+            <div className="fixed inset-y-0 right-0 w-80 bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 z-50 flex flex-col p-6 shadow-premium animate-slide-in text-left">
+              <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800 mb-4">
                 <div className="flex items-center gap-2">
-                  <History size={20} className="text-accent" />
-                  <h3 className="font-semibold text-lg">Voice History</h3>
+                  <History size={18} className="text-accent" />
+                  <h3 className="font-semibold text-sm">Voice History</h3>
                 </div>
                 <button
                   onClick={() => setHistoryOpen(false)}
-                  className="p-1 rounded-lg hover:bg-surface2 text-muted"
+                  className="p-1 rounded-md hover:bg-zinc-150 dark:hover:bg-zinc-900 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"
+                  type="button"
                 >
                   <ArrowRight size={18} />
                 </button>
               </div>
 
               {/* Scrollable conversation logs */}
-              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
                 {history.length === 0 ? (
-                  <div className="text-center py-12">
-                    <History className="mx-auto text-muted mb-2" size={32} />
-                    <p className="text-sm text-muted">No voice conversations recorded.</p>
+                  <div className="text-center py-12 text-zinc-400 dark:text-zinc-500">
+                    <History className="mx-auto mb-2 text-zinc-300 dark:text-zinc-800" size={32} />
+                    <p className="text-xs">No voice conversations recorded.</p>
                   </div>
                 ) : (
                   history.map((item, idx) => (
                     <button
                       key={idx}
                       onClick={() => loadHistoryItem(item)}
-                      className="w-full text-left p-3.5 rounded-xl bg-[#12161A] hover:bg-[#181F27] border border-white/5 hover:border-white/10 transition-all flex flex-col gap-1.5"
+                      className="w-full text-left p-3.5 rounded bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900/40 hover:dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-colors flex flex-col gap-1.5"
+                      type="button"
                     >
                       <div className="flex items-center justify-between w-full">
-                        <span className="text-[10px] text-accent uppercase font-bold tracking-wider">Voice Session</span>
-                        <span className="text-[10px] text-muted">{item.timestamp}</span>
+                        <span className="text-[9px] text-accent uppercase font-bold tracking-wider">Voice Session</span>
+                        <span className="text-[9px] text-zinc-400">{item.timestamp}</span>
                       </div>
-                      <p className="text-sm font-semibold line-clamp-1" style={{ color: "#e2e8f0" }}>"{item.question}"</p>
-                      <p className="text-xs line-clamp-2 leading-relaxed" style={{ color: "#9ca3af" }}>{item.parsed.summary}</p>
+                      <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 line-clamp-1">“{item.question}”</p>
+                      <p className="text-[11px] leading-relaxed text-zinc-500 line-clamp-2">{item.parsed.summary}</p>
                     </button>
                   ))
                 )}

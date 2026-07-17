@@ -1,110 +1,91 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import AppShell from "@/components/AppShell";
 import { useSession } from "@/lib/useSession";
 import { api } from "@/lib/api";
 import { DashboardPayload } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/spinner";
+import { useQuery } from "@tanstack/react-query";
+import { Award, TrendingUp, TrendingDown, Users, DollarSign, Activity, ShoppingBag, Eye, MessageSquare, ArrowRight, Sparkles, AlertTriangle } from "lucide-react";
 
-// Types for Customer Analytics Report
-interface MarketingCampaign {
-  name: string;
-  target: string;
-  channel: string;
-  message: string;
-}
-
-interface SuggestedAutomation {
-  type: string;
-  trigger: string;
-  template: string;
-}
-
-interface CustomerReport {
-  executiveSummary: string;
-  customerHealthScore: number;
-  revenueAnalysis: string;
-  salesTrends: string;
-  customerSegmentsInfo: string;
-  productPerformanceInfo: string;
-  highValueCustomers: { name: string; email: string | null; phone: string | null; ltv: number }[];
-  churnRiskInfo: string;
-  growthOpportunities: string;
-  recommendedMarketingCampaigns: MarketingCampaign[];
-  aiRecommendations: string[];
-  suggestedAutomations: SuggestedAutomation[];
-}
+// Lazy load the customer report drawer to minimize bundle size
+const CustomerReportDrawer = dynamic(() => import("@/components/CustomerReportDrawer"), {
+  loading: () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/45 backdrop-blur-sm">
+      <div className="w-full max-w-2xl h-screen p-6 bg-white dark:bg-zinc-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-zinc-900 dark:border-white border-t-transparent rounded-full animate-spin" />
+      </div>
+    </div>
+  ),
+});
 
 export default function DashboardPage() {
   const { businessId, loading: sessionLoading } = useSession({ requireBusiness: true });
-  const [data, setData] = useState<DashboardPayload | null>(null);
-  const [loading, setLoading] = useState(true);
-  
-  // AI report modal states
   const [showReportModal, setShowReportModal] = useState(false);
-  const [latestReport, setLatestReport] = useState<CustomerReport | null>(null);
-  const [reportLoading, setReportLoading] = useState(false);
 
-  useEffect(() => {
-    if (!businessId) return;
-    api
-      .get<DashboardPayload>(`/api/dashboard/${businessId}`)
-      .then((res) => {
-        setData(res);
-        if (res.advancedMetrics?.lastReportId) {
-          fetchLatestReport();
-        }
-      })
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessId]);
+  // React Query: Fetch dashboard payload
+  const { data, isLoading: dashboardLoading, error } = useQuery<DashboardPayload>({
+    queryKey: ["dashboard", businessId],
+    queryFn: () => api.get<DashboardPayload>(`/api/dashboard/${businessId}`),
+    enabled: !!businessId,
+  });
 
-  function fetchLatestReport() {
-    if (!businessId) return;
-    setReportLoading(true);
-    api
-      .get<{ report: any }>(`/api/customers/reports/${businessId}/latest`)
-      .then((res) => {
-        if (res.report) {
-          setLatestReport(res.report.content);
-        }
-      })
-      .catch(() => setLatestReport(null))
-      .finally(() => setReportLoading(false));
-  }
+  // React Query: Fetch latest customer report
+  const { data: latestReport } = useQuery<any>({
+    queryKey: ["latest-report", businessId],
+    queryFn: async () => {
+      const res = await api.get<{ report: any }>(`/api/customers/reports/${businessId}/latest`);
+      return res.report ? res.report.content : null;
+    },
+    enabled: !!businessId && !!data?.advancedMetrics?.lastReportId,
+  });
 
-  if (sessionLoading || loading) {
+  const loading = sessionLoading || dashboardLoading;
+
+  if (loading) {
     return (
       <AppShell>
-        <div className="space-y-6 animate-pulse">
-          <div className="h-8 bg-surface2 rounded-xl w-1/3 mb-1" />
-          <div className="h-4 bg-surface2 rounded-xl w-1/4 mb-7" />
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-4 w-1/4" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="card p-4 h-24 bg-surface" />
+              <Skeleton key={i} className="h-28" />
             ))}
           </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="card p-5 h-64 bg-surface" />
-            <div className="card p-5 h-64 bg-surface" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Skeleton className="h-96 lg:col-span-2" />
+            <Skeleton className="h-96" />
           </div>
         </div>
       </AppShell>
     );
   }
 
-  if (!data) {
+  if (error || !data) {
     return (
       <AppShell>
-        <div className="card p-8 text-center flex flex-col items-center gap-4 max-w-md mx-auto mt-12">
-          <div className="w-12 h-12 rounded-full bg-danger/10 border border-danger/20 flex items-center justify-center text-danger text-xl">
-            ⚠️
-          </div>
-          <div>
-            <h3 className="font-semibold text-lg mb-1">Failed to load Dashboard</h3>
-            <p className="text-sm text-muted">We encountered an error loading your business dashboard payload. Please try again later.</p>
-          </div>
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <Card className="max-w-md w-full p-6 text-center shadow-premium border border-zinc-200 dark:border-zinc-800">
+            <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/20 flex items-center justify-center text-red-500 mx-auto mb-4 text-lg">
+              ⚠️
+            </div>
+            <h3 className="font-display font-semibold text-base mb-1">Failed to load Dashboard</h3>
+            <p className="text-xs text-zinc-550 dark:text-zinc-400 mb-4">
+              We encountered an error loading your business dashboard payload. Please check your connection.
+            </p>
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </Card>
         </div>
       </AppShell>
     );
@@ -113,35 +94,39 @@ export default function DashboardPage() {
   if (!data.hasEnoughData) {
     return (
       <AppShell>
-        <h1 className="font-display text-2xl font-semibold mb-1">Welcome to {data.businessName}</h1>
-        <p className="text-muted text-sm mb-7">Setup your business profile to activate Nexora AI insights.</p>
-        
-        <div className="card p-8 max-w-2xl text-center flex flex-col items-center gap-5 mx-auto mt-8">
-           <div className="w-16 h-16 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-3xl animate-float">
-             📊
-           </div>
-           <div>
-             <h2 className="text-xl font-semibold mb-2">Analyzing your Business Readiness</h2>
-             <p className="text-sm text-muted leading-relaxed max-w-md mx-auto">
-               {data.missingInfoExplanation || "Nexora needs a bit more data before it can generate your strategic growth roadmap and metrics dashboard."}
-             </p>
-           </div>
-
-           <div className="bg-[#12161A] p-4 rounded-xl border border-white/5 text-left w-full max-w-md">
-             <span className="text-[10px] text-accent uppercase font-bold tracking-wider block mb-2">Required items to unlock dashboard</span>
-             <ul className="flex flex-col gap-1.5 text-sm">
-               {data.missingAssets?.map((m) => (
-                 <li key={m} className="flex items-center gap-2 text-ink">
-                   <span className="text-accent">•</span> {m}
-                 </li>
-               )) || <li className="text-muted">No pending assets</li>}
-             </ul>
-           </div>
-
-           <Link href="/customers" className="btn-primary px-8 mt-2">
-             Configure & Add Customer Data
-           </Link>
+        <div className="mb-6 text-left">
+          <h1 className="font-display text-2xl font-semibold">Welcome, {data.businessName}</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1">Configure your business profiles to activate Nexora CGO analytics.</p>
         </div>
+        
+        <Card className="p-8 max-w-2xl text-center flex flex-col items-center gap-5 mx-auto mt-8 border border-zinc-250 dark:border-zinc-850 shadow-premium bg-white dark:bg-zinc-950 text-left">
+          <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-650 dark:text-zinc-400 text-lg animate-float">
+            📊
+          </div>
+          <div>
+            <h2 className="text-base font-semibold mb-2 text-center">Analyzing Business Readiness</h2>
+            <p className="text-xs text-zinc-550 dark:text-zinc-400 leading-relaxed max-w-md mx-auto text-center">
+              {data.missingInfoExplanation || "Nexora needs a bit more data before it can generate your growth checklist and metrics dashboard."}
+            </p>
+          </div>
+
+          <div className="bg-zinc-50/50 dark:bg-zinc-900/10 p-4 rounded border border-zinc-200 dark:border-zinc-800 text-left w-full max-w-md">
+            <span className="text-[10px] text-zinc-450 dark:text-zinc-500 uppercase font-bold tracking-wider block mb-2">Required actions to unlock dashboard</span>
+            <ul className="flex flex-col gap-2 text-xs font-semibold">
+              {data.missingAssets?.map((m) => (
+                <li key={m} className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+                  <span className="text-accent font-bold">•</span> {m}
+                </li>
+              )) || <li className="text-zinc-500">No pending assets</li>}
+            </ul>
+          </div>
+
+          <Link href="/customers" className="mt-2 w-full max-w-xs">
+            <Button className="w-full">
+              Configure & Add Customer Data
+            </Button>
+          </Link>
+        </Card>
       </AppShell>
     );
   }
@@ -151,359 +136,313 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="font-display text-2xl font-semibold">Good to see you, {data.businessName}</h1>
+      {/* Bento Layout Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 text-left">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">Good to see you, {data.businessName}</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 text-xs">Here is what deserves your attention today.</p>
+        </div>
         {hasAdvanced && latestReport && (
-          <button className="btn-secondary text-xs" onClick={() => setShowReportModal(true)}>
-            ★ View Customer Intelligence Report
-          </button>
+          <Button size="sm" variant="outline" className="flex items-center gap-1.5" onClick={() => setShowReportModal(true)}>
+            <Eye size={14} /> View AI CRM Report
+          </Button>
         )}
       </div>
-      <p className="text-muted mb-7 text-sm">Here&apos;s what deserves your attention today.</p>
 
-      {/* Advanced metrics or standard metrics grid */}
-      {hasAdvanced && adv ? (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
-          <div className="card p-4">
-            <p className="text-xl font-display font-semibold text-accent">{adv.totalCustomers}</p>
-            <p className="text-[10px] text-muted mt-1">Total Customers</p>
-            <span className="text-[9px] text-accent2 font-semibold">+{adv.customerGrowthPct}% growth</span>
-            <div className="text-[8px] text-muted mt-2 border-t border-border/40 pt-1">Total unique buyers.</div>
-          </div>
-          <div className="card p-4">
-            <p className="text-xl font-display font-semibold text-accent2">₹{adv.monthlySales.toLocaleString()}</p>
-            <p className="text-[10px] text-muted mt-1">Monthly Sales</p>
-            <span className={`text-[9px] font-semibold ${adv.revenueTrendPct >= 0 ? "text-accent2" : "text-danger"}`}>
-              {adv.revenueTrendPct >= 0 ? "▲" : "▼"} {Math.abs(adv.revenueTrendPct)}% trend
+      {/* FIRST PRIORITY: AI Hero Section (Answers: "What should I do today?") */}
+      <div className="mb-8 relative rounded-xl overflow-hidden border border-accent/20 bg-gradient-to-r from-accent/10 to-indigo-500/[0.03] dark:from-accent/15 dark:to-indigo-500/[0.01] p-6 shadow-glow text-left flex flex-col lg:flex-row gap-6 items-start justify-between">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex-1 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="bg-accent/20 text-accent dark:text-accent font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider flex items-center gap-1">
+              <Sparkles size={10} /> AI Growth Feed
             </span>
-            <div className="text-[8px] text-muted mt-2 border-t border-border/40 pt-1">Sales in last 30d.</div>
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider">Today&apos;s Focus Recommendation</span>
           </div>
-          <div className="card p-4">
-            <p className="text-xl font-display font-semibold text-warn">₹{adv.customerLifetimeValue.toLocaleString()}</p>
-            <p className="text-[10px] text-muted mt-1">Lifetime Value (CLV)</p>
-            <div className="text-[8px] text-muted mt-5 border-t border-border/40 pt-1">Average buyer lifetime value.</div>
-          </div>
-          <div className="card p-4">
-            <p className="text-xl font-display font-semibold">₹{adv.averageOrderValue.toLocaleString()}</p>
-            <p className="text-[10px] text-muted mt-1">Average Order (AOV)</p>
-            <div className="text-[8px] text-muted mt-5 border-t border-border/40 pt-1">Mean spent per order transaction.</div>
-          </div>
-          <div className="card p-4">
-            <p className="text-xl font-display font-semibold text-danger">{adv.churnRiskCount}</p>
-            <p className="text-[10px] text-muted mt-1">High Churn Risk</p>
-            <div className="text-[8px] text-muted mt-5 border-t border-border/40 pt-1">Quiet buyers (60d+ silent).</div>
-          </div>
-          <div className="card p-4">
-            <p className="text-xl font-display font-semibold text-accent">{data.digitalMaturity}</p>
-            <p className="text-[10px] text-muted mt-1">Your Online Business Health</p>
-            <div className="text-[8px] text-muted mt-2 border-t border-border/40 pt-1">Channels visibility presence score.</div>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div className="card p-5">
-            <p className="text-2xl font-display font-semibold text-accent">{data.readinessScore}</p>
-            <p className="text-xs text-muted mt-1">Business Readiness</p>
-            <div className="text-[10px] text-muted mt-2">Overall baseline scorecard of your business health.</div>
-          </div>
-          <div className="card p-5">
-            <p className="text-2xl font-display font-semibold text-accent2">{data.growthScore ?? "—"}</p>
-            <p className="text-xs text-muted mt-1">Growth Score</p>
-            <div className="text-[10px] text-muted mt-2">Measures your recent revenue and customer retention.</div>
-          </div>
-          <div className="card p-5">
-            <p className="text-2xl font-display font-semibold">{data.digitalMaturity}</p>
-            <p className="text-xs text-muted mt-1">Your Online Business Health</p>
-            <div className="text-[10px] text-muted mt-2">Online footprint score based on active social networks.</div>
-          </div>
-          <div className="card p-5">
-            <p className="text-2xl font-display font-semibold text-warn">{data.risks?.length ?? 0}</p>
-            <p className="text-xs text-muted mt-1">Potential Risks</p>
-            <div className="text-[10px] text-muted mt-2">Operational or churn risks that deserve attention.</div>
-          </div>
-        </div>
-      )}
 
-      {/* Main Content Layout */}
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
-        {/* Missions Card */}
-        <div className="card p-5 md:col-span-2">
-          <div className="flex items-center justify-between mb-1">
-            <p className="font-semibold text-sm">Today&apos;s Missions</p>
-            <Link href="/missions" className="text-xs text-accent">View all</Link>
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold tracking-tight leading-snug">
+              Unlock Projected monthly revenue of <span className="text-emerald-500 font-bold font-display">₹{data.todaysMissions?.reduce((s, m) => s + (m.projectedImpact || 0), 0).toLocaleString() || "0"}</span>
+            </h2>
+            <p className="text-xs text-zinc-650 dark:text-zinc-300 leading-relaxed font-medium">
+              <strong className="text-zinc-900 dark:text-zinc-100 font-semibold">Key Recommendation:</strong> {data.revenueOpportunity}
+            </p>
           </div>
-          <p className="text-[10px] text-muted mb-4">Recommended tasks suggested by AI to improve customer retention and revenue.</p>
-          {data.todaysMissions?.length ? (
-            <ul className="flex flex-col gap-3">
-              {data.todaysMissions.slice(0, 4).map((m) => (
-                <li key={m.id} className="border border-border rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`pill ${m.priority === "high" ? "bg-danger/15 text-danger" : "bg-warn/15 text-warn"}`}>{m.priority}</span>
-                    <p className="text-sm font-medium">{m.title}</p>
-                  </div>
-                  <p className="text-xs text-muted">{m.reasoning}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted">No missions right now — you&apos;re on track.</p>
-          )}
-        </div>
 
-        {/* Opportunities/Actions Card */}
-        <div className="card p-5 flex flex-col justify-between">
-          <div>
-            <p className="font-semibold text-sm mb-1">Revenue Opportunity</p>
-            <p className="text-[10px] text-muted mb-3">AI identified high-value action to unlock immediate sales.</p>
-            <p className="text-xs text-muted leading-relaxed mb-4">{data.revenueOpportunity}</p>
-          </div>
-          
-          {hasAdvanced && adv?.recommendedNextActions?.length && (
+          {/* AI business narrative points */}
+          <div className="grid md:grid-cols-2 gap-4 border-t border-zinc-200/50 dark:border-white/10 pt-4 mt-2">
             <div>
-              <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-2">Recommended Next Actions</p>
-              <ul className="flex flex-col gap-2 text-xs text-muted">
-                {adv.recommendedNextActions.map((act, i) => (
-                  <li key={i} className="flex gap-1.5">
-                    <span>•</span>
-                    <span>{act}</span>
-                  </li>
-                ))}
+              <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider block mb-2">Trend Summary</span>
+              <ul className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+                {hasAdvanced && adv?.aiBusinessInsights?.length ? (
+                  adv.aiBusinessInsights.slice(0, 2).map((insight, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="text-accent">•</span>
+                      <span>{insight}</span>
+                    </li>
+                  ))
+                ) : (
+                  data.businessStory?.slice(0, 2).map((s, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="text-accent">•</span>
+                      <span>{s}</span>
+                    </li>
+                  ))
+                )}
               </ul>
             </div>
-          )}
+            
+            {hasAdvanced && adv?.recommendedNextActions?.length && (
+              <div>
+                <span className="text-[9px] text-accent font-bold uppercase tracking-wider block mb-2">Immediate Next Actions</span>
+                <ul className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-400 font-medium">
+                  {adv.recommendedNextActions.slice(0, 2).map((act, i) => (
+                    <li key={i} className="flex gap-1.5 items-start">
+                      <span className="text-accent font-bold">⚫</span>
+                      <span>{act}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="lg:w-72 w-full bg-white/45 dark:bg-[#111827]/40 border border-zinc-200/60 dark:border-white/5 rounded-xl p-4 shadow-sm flex flex-col justify-between self-stretch shrink-0 gap-4">
+          <div>
+            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider block mb-1">CGO Assistant Shortcuts</span>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">Run live predictions or test staff adjustments directly with Nexora.</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Link href="/chat">
+              <Button size="sm" className="w-full text-xs font-semibold flex items-center justify-between">
+                <span>Start Predictions Chat</span>
+                <ArrowRight size={12} />
+              </Button>
+            </Link>
+            <Link href="/suggested-messages">
+              <Button size="sm" variant="outline" className="w-full text-xs font-semibold flex items-center justify-between">
+                <span>Outreach campaigns ({data.automationSuggestionCount || 0})</span>
+                <MessageSquare size={12} />
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Segments and Top Products Section if Advanced metrics are available */}
-      {hasAdvanced && adv && (
-        <div className="grid md:grid-cols-2 gap-4 mb-6">
-          <div className="card p-5">
-            <h3 className="font-semibold text-sm mb-1">Your Customer Groups</h3>
-            <p className="text-[10px] text-muted mb-4">
-              <strong>What it means:</strong> Visualizes how your customer base is grouped based on LTV and order counts.<br/>
-              <strong>Why it matters:</strong> Helps you distinguish high-value VIPs from churned quiet customers to prioritize campaign budgets.<br/>
-              <strong>What action to take:</strong> Check the &quot;Tasks You Can Automate&quot; page to prepare loyalty or re-engagement coupons.
-            </p>
-            <div className="flex flex-col gap-3">
+      {/* SECOND PRIORITY: Bento Grid Analytics & Details Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
+        
+        {/* Bento Grid Cell 1: Core Performance Indicators */}
+        <Card className="p-6 lg:col-span-2 flex flex-col gap-4">
+          <div className="flex items-center justify-between border-b border-zinc-150 dark:border-zinc-850 pb-3">
+            <div>
+              <h3 className="font-semibold text-sm">Business Health Scorecard</h3>
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Core parameters parsed from customer orders and digital channels.</p>
+            </div>
+            <Badge variant="secondary">LATEST</Badge>
+          </div>
+          
+          {hasAdvanced && adv ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="p-3 bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800 rounded">
+                <span className="text-[9px] text-zinc-400 dark:text-zinc-550 uppercase tracking-wider font-bold block mb-1">Customers</span>
+                <p className="text-lg font-semibold font-display">{adv.totalCustomers}</p>
+                <Badge variant="success" className="text-[8px] font-bold mt-1 px-1 py-0">+{adv.customerGrowthPct}% growth</Badge>
+              </div>
+              <div className="p-3 bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800 rounded">
+                <span className="text-[9px] text-zinc-400 dark:text-zinc-555 uppercase tracking-wider font-bold block mb-1">Monthly Revenue</span>
+                <p className="text-lg font-semibold font-display">₹{adv.monthlySales.toLocaleString()}</p>
+                <Badge variant={adv.revenueTrendPct >= 0 ? "success" : "destructive"} className="text-[8px] font-bold mt-1 px-1 py-0">
+                  {adv.revenueTrendPct >= 0 ? "+" : ""}{adv.revenueTrendPct}% trend
+                </Badge>
+              </div>
+              <div className="p-3 bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800 rounded">
+                <span className="text-[9px] text-zinc-400 dark:text-zinc-555 uppercase tracking-wider font-bold block mb-1">Lifetime Value (CLV)</span>
+                <p className="text-lg font-semibold font-display">₹{adv.customerLifetimeValue.toLocaleString()}</p>
+                <span className="text-[9px] text-zinc-400 block mt-1">Average spent/buyer</span>
+              </div>
+              <div className="p-3 bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800 rounded">
+                <span className="text-[9px] text-zinc-400 dark:text-zinc-555 uppercase tracking-wider font-bold block mb-1">Average Order (AOV)</span>
+                <p className="text-lg font-semibold font-display">₹{adv.averageOrderValue.toLocaleString()}</p>
+                <span className="text-[9px] text-zinc-400 block mt-1">Mean spent/invoice</span>
+              </div>
+              <div className="p-3 bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800 rounded">
+                <span className="text-[9px] text-zinc-400 dark:text-zinc-555 uppercase tracking-wider font-bold block mb-1">High Churn Risk</span>
+                <p className="text-lg font-semibold font-display text-red-500">{adv.churnRiskCount}</p>
+                <span className="text-[9px] text-zinc-400 block mt-1">Silent buyers (60d+)</span>
+              </div>
+              <div className="p-3 bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800 rounded">
+                <span className="text-[9px] text-zinc-400 dark:text-zinc-555 uppercase tracking-wider font-bold block mb-1">Digital Maturity</span>
+                <p className="text-lg font-semibold font-display">{data.digitalMaturity}</p>
+                <span className="text-[9px] text-zinc-400 block mt-1">Active social reach</span>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800 rounded">
+                <span className="text-[9px] text-zinc-400 uppercase tracking-wider font-bold block">Readiness Score</span>
+                <p className="text-lg font-semibold font-display mt-1">{data.readinessScore}</p>
+              </div>
+              <div className="p-3 bg-zinc-50/50 dark:bg-zinc-900/10 border border-zinc-200 dark:border-zinc-800 rounded">
+                <span className="text-[9px] text-zinc-400 uppercase tracking-wider font-bold block">Growth Score</span>
+                <p className="text-lg font-semibold font-display mt-1">{data.growthScore ?? "—"}</p>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Bento Grid Cell 2: Quick Outreach / Customer Alert list */}
+        <Card className="p-6 flex flex-col justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="font-semibold text-sm">Churn Alerts</h3>
+            <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Urgent follow-ups suggested for at-risk accounts.</p>
+          </div>
+
+          <div className="flex-1 overflow-y-auto max-h-56 pr-1 space-y-2 scrollbar-thin">
+            {data.customerAlerts?.length ? (
+              data.customerAlerts.slice(0, 4).map((c) => (
+                <div key={c.id} className="flex items-center justify-between border-b border-zinc-150 dark:border-zinc-900 last:border-0 pb-2 last:pb-0">
+                  <div className="flex items-start gap-1.5 max-w-[80%]">
+                    <AlertTriangle size={12} className="text-amber-500 mt-0.5 shrink-0" />
+                    <span className="text-[11px] text-zinc-650 dark:text-zinc-350 leading-snug">{c.message}</span>
+                  </div>
+                  <Link href={`/customers/${c.id}`}>
+                    <Button variant="link" size="sm" className="h-auto p-0 font-bold text-xs text-accent">View</Button>
+                  </Link>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-zinc-450 italic py-6 text-center">No quiet accounts detected.</p>
+            )}
+          </div>
+
+          <Link href="/suggested-messages" className="w-full">
+            <Button variant="outline" size="sm" className="w-full text-xs font-semibold flex items-center justify-between">
+              <span>View Outreach Campaigns</span>
+              <MessageSquare size={12} />
+            </Button>
+          </Link>
+        </Card>
+
+        {/* Bento Grid Cell 3: Today's Priorities / Active Growth Missions */}
+        <Card className="p-6 md:col-span-2">
+          <div className="flex items-center justify-between border-b border-zinc-150 dark:border-zinc-850 pb-3 mb-4">
+            <div>
+              <h3 className="font-semibold text-sm">Recommended Growth Missions</h3>
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Actions calculated by strategic intelligence engine.</p>
+            </div>
+            <Link href="/missions" className="text-xs font-semibold text-accent hover:underline">View all</Link>
+          </div>
+
+          {data.todaysMissions?.length ? (
+            <div className="grid md:grid-cols-2 gap-3.5">
+              {data.todaysMissions.slice(0, 4).map((m) => (
+                <div key={m.id} className="border border-zinc-200/80 dark:border-zinc-800/85 rounded p-3 bg-zinc-50/20 dark:bg-zinc-900/10 flex flex-col justify-between gap-2 text-left">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Badge variant={m.priority === "high" ? "destructive" : "warning"}>{m.priority}</Badge>
+                      {m.projectedImpact && (
+                        <span className="text-[9px] font-bold text-emerald-500">+₹{m.projectedImpact}/mo</span>
+                      )}
+                    </div>
+                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-150 leading-snug">{m.title}</p>
+                  </div>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-normal line-clamp-2" title={m.reasoning}>{m.reasoning}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-zinc-450 italic py-12 text-center">All missions completed! Run discovery scan again.</p>
+          )}
+        </Card>
+
+        {/* Bento Grid Cell 4: Strategic Groups Segmentation */}
+        {hasAdvanced && adv && (
+          <Card className="p-6 flex flex-col justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="font-semibold text-sm">Customer Loyalty Segments</h3>
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Categorization metrics based on lifetime invoice counts.</p>
+            </div>
+
+            <div className="space-y-3.5 flex-1">
               {adv.customerSegments.map((seg, i) => {
-                const colors = ["bg-accent", "bg-accent2", "bg-warn", "bg-danger"];
+                const colors = ["bg-accent", "bg-emerald-500", "bg-amber-500", "bg-red-500"];
                 const color = colors[i % colors.length];
                 const pct = Math.round((seg.count / (adv.totalCustomers || 1)) * 100);
                 return (
-                  <div key={seg.name}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-muted">{seg.name}</span>
-                      <span className="font-medium">{seg.count} ({pct}%)</span>
+                  <div key={seg.name} className="space-y-1">
+                    <div className="flex justify-between text-xs font-semibold">
+                      <span className="text-zinc-500 dark:text-zinc-405">{seg.name}</span>
+                      <span className="text-zinc-900 dark:text-zinc-150">{seg.count} ({pct}%)</span>
                     </div>
-                    <div className="w-full h-2 bg-surface2 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-900 rounded-full overflow-hidden">
                       <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
-          <div className="card p-5">
-            <h3 className="font-semibold text-sm mb-1">Your Best and Worst Selling Products</h3>
-            <p className="text-[10px] text-muted mb-4">
-              <strong>What it means:</strong> Ranks your products and services by total revenue contribution.<br/>
-              <strong>Why it matters:</strong> Identifies which offerings drive the bulk of your cash flow versus underperforming items.<br/>
-              <strong>What action to take:</strong> Consider offering the lower-ranked items in bundles with your best sellers.
-            </p>
-            <div className="flex flex-col gap-3 text-sm">
+          </Card>
+        )}
+
+        {/* Bento Grid Cell 5: Best & Worst Products revenue rankings */}
+        {hasAdvanced && adv && (
+          <Card className="p-6">
+            <div className="border-b border-zinc-150 dark:border-zinc-850 pb-3 mb-4">
+              <h3 className="font-semibold text-sm">Revenue contribution by Product</h3>
+              <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Products contribution rankings calculated over 30d invoices.</p>
+            </div>
+
+            <div className="space-y-2.5 text-xs font-medium">
               {adv.topProducts?.length ? (
                 adv.topProducts.map((p, i) => (
-                  <div key={p.name} className="flex justify-between items-center border-b border-border last:border-0 pb-2.5 last:pb-0">
-                    <span className="text-muted">{i+1}. {p.name}</span>
-                    <span className="font-semibold text-ink">₹{p.revenue.toLocaleString()}</span>
+                  <div key={p.name} className="flex justify-between items-center border-b border-zinc-100 dark:border-zinc-900/60 last:border-0 pb-2 last:pb-0">
+                    <span className="text-zinc-650 dark:text-zinc-400 font-semibold">{i+1}. {p.name}</span>
+                    <span className="font-bold text-zinc-900 dark:text-zinc-50">₹{p.revenue.toLocaleString()}</span>
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-muted">No product performance data generated yet.</p>
+                <p className="text-xs text-zinc-450 italic text-center py-6">No sales transactions logged.</p>
               )}
             </div>
+          </Card>
+        )}
+
+        {/* Bento Grid Cell 6: Business Story Narratives */}
+        <Card className={`p-6 ${hasAdvanced ? "" : "lg:col-span-2"}`}>
+          <div className="border-b border-zinc-150 dark:border-zinc-850 pb-3 mb-4">
+            <h3 className="font-semibold text-sm">AI Strategic Audit</h3>
+            <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Daily business overview compiled by strategy memory agent.</p>
           </div>
-        </div>
-      )}
-
-      {/* Stories / Alerts Grid */}
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
-        <div className="card p-5">
-          <p className="font-semibold text-sm mb-1">Business Story</p>
-          <p className="text-[10px] text-muted mb-3">AI compiled insights summarizing your digital presence and customer health trends.</p>
-          <ul className="flex flex-col gap-2 text-sm text-muted">
+          
+          <div className="overflow-y-auto max-h-56 pr-1 space-y-3.5 scrollbar-thin text-xs text-zinc-650 dark:text-zinc-400 font-semibold leading-relaxed">
             {hasAdvanced && adv?.aiBusinessInsights?.length ? (
-              adv.aiBusinessInsights.map((insight, i) => <li key={i}>• {insight}</li>)
+              adv.aiBusinessInsights.map((insight, i) => (
+                <div key={i} className="flex gap-2">
+                  <span className="text-accent font-bold mt-0.5">•</span>
+                  <span>{insight}</span>
+                </div>
+              ))
             ) : (
-              data.businessStory?.map((s, i) => <li key={i}>• {s}</li>)
+              data.businessStory?.map((s, i) => (
+                <div key={i} className="flex gap-2">
+                  <span className="text-accent font-bold mt-0.5">•</span>
+                  <span>{s}</span>
+                </div>
+              ))
             )}
-          </ul>
-        </div>
-        <div className="card p-5">
-          <p className="font-semibold text-sm mb-1">Customer Alerts</p>
-          <p className="text-[10px] text-muted mb-3">Important follow-ups flagged for quiet or at-risk customers.</p>
-          {data.customerAlerts?.length ? (
-            <ul className="flex flex-col gap-2 text-sm">
-              {data.customerAlerts.slice(0, 5).map((c) => (
-                <li key={c.id} className="flex items-center justify-between">
-                  <span>{c.message}</span>
-                  <Link href={`/customers/${c.id}`} className="text-accent text-xs">View</Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted">No customer alerts right now.</p>
-          )}
-        </div>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <Link href="/chat" className="card p-5 hover:border-accent/40 transition block">
-          <p className="font-semibold text-sm mb-1">Quick AI Chat</p>
-          <p className="text-xs text-muted mb-2">Connect with your AI chief growth consultant regarding employees adjustments or sales simulations.</p>
-          <p className="text-xs text-accent">Ask &quot;What if I reduce my employee count by 2?&quot; →</p>
-        </Link>
-        <Link href="/suggested-messages" className="card p-5 hover:border-accent/40 transition block">
-          <p className="font-semibold text-sm mb-1">AI Suggested Messages</p>
-          <p className="text-xs text-muted mb-2">Review AI-prepared personalized WhatsApp messages to follow up with customers.</p>
-          <p className="text-xs text-accent">{data.automationSuggestionCount ?? 0} suggested message(s) ready for review →</p>
-        </Link>
+          </div>
+        </Card>
       </div>
 
       {/* Customer Report Drawer Modal */}
       {showReportModal && latestReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-2xl h-screen rounded-none border-l border-border p-6 overflow-y-auto flex flex-col justify-between relative shadow-2xl bg-base">
-            <button
-              className="absolute top-6 right-6 text-muted hover:text-ink text-lg"
-              onClick={() => setShowReportModal(false)}
-            >
-              ✕
-            </button>
-
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="pill bg-accent/15 text-accent text-[10px]">AI Report</span>
-                <span className="text-xs text-muted">Customer Intelligence</span>
-              </div>
-              <h2 className="font-display text-2xl font-semibold mb-6">Customer Intelligence Report</h2>
-
-              {/* Executive Summary */}
-              <div className="mb-6 p-4 rounded-xl bg-surface border border-border">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-xs font-semibold text-accent uppercase tracking-wider">Executive Summary</h4>
-                  <div className="flex items-center gap-1.5 text-xs text-accent2">
-                    <span className="w-2 h-2 rounded-full bg-accent2" />
-                    <span>Health Score: {latestReport.customerHealthScore}/100</span>
-                  </div>
-                </div>
-                <p className="text-sm text-ink leading-relaxed">{latestReport.executiveSummary}</p>
-                <div className="mt-2 text-xs text-muted italic">
-                  Explanation: Your business customer health score reflects your retention rates, active database sizes, and VIP cohorts stability.
-                </div>
-              </div>
-
-              {/* Data Insights */}
-              <div className="space-y-4 mb-6">
-                <div>
-                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">Revenue & Cohort Analysis</h4>
-                  <p className="text-sm text-muted leading-relaxed">{latestReport.revenueAnalysis}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">Customer Segmentation Narrative</h4>
-                  <p className="text-sm text-muted leading-relaxed">{latestReport.customerSegmentsInfo}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">Product Demand Performance</h4>
-                  <p className="text-sm text-muted leading-relaxed">{latestReport.productPerformanceInfo}</p>
-                </div>
-                <div>
-                  <h4 className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">Churn Risks Analysis</h4>
-                  <p className="text-sm text-muted leading-relaxed">{latestReport.churnRiskInfo}</p>
-                </div>
-              </div>
-
-              {/* VIP / High Value List */}
-              <div className="mb-6">
-                <h4 className="text-xs font-semibold text-accent2 uppercase tracking-wider mb-2">Top Value Customer Cohort</h4>
-                <div className="border border-border rounded-xl overflow-hidden text-xs">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="bg-surface2/40 border-b border-border text-muted">
-                        <th className="px-4 py-2">Customer</th>
-                        <th className="px-4 py-2">Contact</th>
-                        <th className="px-4 py-2">LTV</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {latestReport.highValueCustomers?.map((cust, i) => (
-                        <tr key={i} className="border-b border-border last:border-0">
-                          <td className="px-4 py-2 font-medium">{cust.name}</td>
-                          <td className="px-4 py-2 text-muted">{cust.email || cust.phone || "—"}</td>
-                          <td className="px-4 py-2 font-semibold">₹{cust.ltv.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Marketing Campaigns */}
-              <div className="mb-6">
-                <h4 className="text-xs font-semibold text-warn uppercase tracking-wider mb-2">Recommended Marketing Campaigns</h4>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {latestReport.recommendedMarketingCampaigns?.map((camp, i) => (
-                    <div key={i} className="border border-border rounded-xl p-3 bg-surface text-xs flex flex-col gap-1">
-                      <p className="font-semibold text-ink">{camp.name}</p>
-                      <p className="text-muted"><span className="font-medium text-accent">Target:</span> {camp.target} | <span className="font-medium text-accent2">Channel:</span> {camp.channel}</p>
-                      <p className="text-[11px] text-muted italic mt-1 bg-surface2/30 p-2 rounded-lg border border-border">
-                        &quot;{camp.message}&quot;
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Actionable Recommendations */}
-              <div className="mb-6">
-                <h4 className="text-xs font-semibold text-accent uppercase tracking-wider mb-2">Strategic Recommendations</h4>
-                <ul className="flex flex-col gap-2 text-xs">
-                  {latestReport.aiRecommendations?.map((rec, i) => (
-                    <li key={i} className="flex gap-2 text-muted">
-                      <span className="text-accent">•</span>
-                      <span>{rec}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Suggested Automations */}
-              <div className="mb-6">
-                <h4 className="text-xs font-semibold text-accent2 uppercase tracking-wider mb-2">Suggested Automations</h4>
-                <div className="flex flex-col gap-2">
-                  {latestReport.suggestedAutomations?.map((aut, i) => (
-                    <div key={i} className="border border-border rounded-xl p-3 bg-surface text-xs flex flex-col gap-1">
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-accent2">{aut.type}</span>
-                        <span className="text-[10px] text-muted">Trigger: {aut.trigger}</span>
-                      </div>
-                      <p className="text-[11px] text-muted italic mt-1 bg-surface2/30 p-2 rounded-lg border border-border">
-                        Template: &quot;{aut.template}&quot;
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-border mt-8 flex justify-end">
-              <button className="btn-secondary" onClick={() => setShowReportModal(false)}>
-                Close Report
-              </button>
-            </div>
-          </div>
-        </div>
+        <CustomerReportDrawer
+          report={latestReport}
+          onClose={() => setShowReportModal(false)}
+        />
       )}
     </AppShell>
   );

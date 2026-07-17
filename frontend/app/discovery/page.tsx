@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, setBusinessId, ApiError } from "@/lib/api";
 import { Business } from "@/lib/types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type FormState = {
   businessId?: string;
@@ -50,6 +51,7 @@ const STEPS = ["Basics", "About the business", "Digital presence", "Import your 
 
 function DiscoveryPageContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
 
@@ -58,58 +60,62 @@ function DiscoveryPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<Record<string, string>>({});
-  const [checking, setChecking] = useState(true);
+
+  const token = typeof window !== "undefined" ? localStorage.getItem("nexora_token") : null;
+
+  // React Query: Cached business lookup
+  const { data, isLoading: checking, error: fetchError } = useQuery({
+    queryKey: ["businessMe"],
+    queryFn: () => api.get<{ business: Business | null }>("/api/business/me"),
+    enabled: !!token,
+    staleTime: 1000 * 60 * 15,
+  });
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("nexora_token") : null;
     if (!token) {
       router.replace("/login");
       return;
     }
-    (async () => {
-      try {
-        const res = await api.get<{ business: Business | null }>("/api/business/me");
-        if (res.business) {
-          if (res.business.discoveryComplete && !isDemo) {
-            router.replace("/assessment");
-            return;
-          }
-          setForm({
-            businessId: res.business.id,
-            name: res.business.name || "",
-            industry: res.business.industry || "",
-            category: res.business.category || "",
-            location: res.business.location || "",
-            employees: res.business.employees || "",
-            yearsInBusiness: res.business.yearsInBusiness || "",
-            products: res.business.products || "",
-            services: res.business.services || "",
-            avgDailySales: res.business.avgDailySales?.toString() || "",
-            avgMonthlyRevenue: res.business.avgMonthlyRevenue?.toString() || "",
-            googleBusiness: res.business.googleBusiness || "",
-            instagram: res.business.instagram || "",
-            facebook: res.business.facebook || "",
-            website: res.business.website || "",
-            whatsappBiz: res.business.whatsappBiz || "",
-            linkedin: res.business.linkedin || "",
-            goals: res.business.goals || "",
-          });
-          setBusinessId(res.business.id);
-        }
-      } catch (err) {
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("nexora_token");
-          localStorage.removeItem("nexora_business_id");
-          localStorage.removeItem("nexora_user");
-        }
-        router.replace("/login");
-        return;
-      } finally {
-        setChecking(false);
+
+    if (fetchError) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("nexora_token");
+        localStorage.removeItem("nexora_business_id");
+        localStorage.removeItem("nexora_user");
       }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemo]);
+      router.replace("/login");
+      return;
+    }
+
+    if (data?.business) {
+      const biz = data.business;
+      if (biz.discoveryComplete && !isDemo) {
+        router.replace("/assessment");
+        return;
+      }
+      setForm({
+        businessId: biz.id,
+        name: biz.name || "",
+        industry: biz.industry || "",
+        category: biz.category || "",
+        location: biz.location || "",
+        employees: biz.employees || "",
+        yearsInBusiness: biz.yearsInBusiness || "",
+        products: biz.products || "",
+        services: biz.services || "",
+        avgDailySales: biz.avgDailySales?.toString() || "",
+        avgMonthlyRevenue: biz.avgMonthlyRevenue?.toString() || "",
+        googleBusiness: biz.googleBusiness || "",
+        instagram: biz.instagram || "",
+        facebook: biz.facebook || "",
+        website: biz.website || "",
+        whatsappBiz: biz.whatsappBiz || "",
+        linkedin: biz.linkedin || "",
+        goals: biz.goals || "",
+      });
+      setBusinessId(biz.id);
+    }
+  }, [data, token, fetchError, isDemo, router]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -164,6 +170,9 @@ function DiscoveryPageContent() {
   async function handleFinish() {
     const id = await persist(true);
     if (!id) return;
+    // Invalidate cached business session & assessment data
+    queryClient.invalidateQueries({ queryKey: ["businessMe"] });
+    queryClient.invalidateQueries({ queryKey: ["assessment", id] });
     router.push("/assessment");
   }
 

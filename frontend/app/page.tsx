@@ -526,15 +526,15 @@ export default function LandingPage() {
                 idx === 1 ? "delay-75" : idx === 2 ? "delay-150" : idx === 3 ? "delay-200" : ""
               }
             >
-              <div className="bg-[#12161A] border border-border/40 rounded-2xl p-8 h-full flex flex-col justify-between hover:border-accent hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(79,140,255,0.12)] transition duration-300 group">
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 rounded-lg p-8 h-full flex flex-col justify-between hover:border-accent hover:-translate-y-0.5 hover:shadow-premium transition duration-300 group">
                 <div className="flex flex-col gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-accent/15 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
+                  <div className="w-12 h-12 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shadow-inner">
                     {step.icon}
                   </div>
-                  <h3 className="font-display font-bold text-xl text-white group-hover:text-accent transition duration-300">
+                  <h3 className="font-display font-bold text-xl text-zinc-900 dark:text-white group-hover:text-accent transition duration-300">
                     {step.title}
                   </h3>
-                  <p className="text-sm leading-relaxed" style={{ color: "#9ca3af" }}>
+                  <p className="text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
                     {step.desc}
                   </p>
                 </div>
@@ -547,12 +547,12 @@ export default function LandingPage() {
       {/* 6. Grounding Section */}
       <section id="grounding" className="relative max-w-4xl mx-auto px-6 py-16 z-10">
         <ScrollReveal>
-          <div className="p-10 bg-[#12161A] border border-border/40 rounded-3xl relative overflow-hidden shadow-xl hover:border-accent hover:shadow-[0_0_25px_rgba(79,140,255,0.12)] transition duration-300 group">
+          <div className="p-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 rounded-lg relative overflow-hidden shadow-premium hover:border-accent transition duration-300 group">
             <div className="absolute top-0 right-0 w-48 h-48 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
-            <h2 className="font-display text-2xl md:text-3xl font-bold text-white mb-4">
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-zinc-900 dark:text-white mb-4">
               Never a fabricated growth score.
             </h2>
-            <p className="text-sm md:text-base leading-relaxed" style={{ color: "#cbd5e1" }}>
+            <p className="text-sm md:text-base leading-relaxed text-zinc-650 dark:text-zinc-300">
               If your business hasn&apos;t connected any digital presence, customer list, or sales data, Nexora says so — plainly — instead of inventing a metric to look impressive. Every score, every insight, every recommendation is grounded in real information you&apos;ve provided.
             </p>
           </div>

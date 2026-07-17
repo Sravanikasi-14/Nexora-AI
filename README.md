@@ -11,7 +11,7 @@ score/insight/chart. If there's no digital presence, no customer data, and no sa
 
 ```
 nexora/
-├── backend/     Express + TypeScript + Prisma (SQLite) + the 7 agents
+├── backend/     Express + TypeScript + Prisma (PostgreSQL) + the 7 agents
 └── frontend/    Next.js 14 (App Router) + Tailwind
 ```
 
@@ -20,8 +20,8 @@ nexora/
 ## 1. Prerequisites
 
 - Node.js 18+ and npm (check with `node -v`)
-- That's it — the database is local SQLite (zero external setup), and AI Chat/narratives work with
-  deterministic templates even with **no API key**.
+- That's it — the database is PostgreSQL (zero external setup if connecting to a cloud instance like Render),
+  and AI Chat/narratives work with deterministic templates even with **no API key**.
 
 ## 2. Setup — run these in Cursor's terminal
 
@@ -100,7 +100,7 @@ Visit **http://localhost:3000**.
 | `EADDRINUSE: 4000` | Another process is using the port — change `PORT` in `backend/.env`, and update `NEXT_PUBLIC_API_URL` in `frontend/.env.local` to match |
 | Frontend shows network errors / can't sign in | Backend isn't running, or `NEXT_PUBLIC_API_URL` doesn't match the backend port |
 | CORS error in browser console | Set `CLIENT_ORIGIN` in `backend/.env` to your frontend's exact origin (default already matches `localhost:3000`) |
-| `npx prisma migrate dev` asks to reset | Safe to accept in local dev — it's a fresh SQLite file at `backend/prisma/dev.db` (actual path from `DATABASE_URL`) |
+| `npx prisma migrate dev` asks to reset | Safe to accept in local dev — it will reset your development database (actual path from `DATABASE_URL`) |
 | TypeScript errors mentioning `Business`/`Customer`/`Sale` not exported from `@prisma/client` | You skipped `npx prisma generate` — run it, this regenerates the typed client from `schema.prisma` |
 
 Useful extra commands (run from `backend/`):
