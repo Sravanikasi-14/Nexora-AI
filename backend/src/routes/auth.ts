@@ -5,12 +5,26 @@ import { OAuth2Client } from "google-auth-library";
 import { prisma } from "../lib/prisma";
 import { signToken } from "../lib/auth";
 import { AuthedRequest, requireAuth } from "../middleware/auth";
+import "dotenv/config";
 
 const router = Router();
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+let googleClient: OAuth2Client | null = null;
+
+function getGoogleClient() {
+  if (!googleClient) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      throw new Error("GOOGLE_CLIENT_ID is not configured in backend environment variables.");
+    }
+    googleClient = new OAuth2Client(clientId);
+  }
+  return googleClient;
+}
 
 async function verifyGoogleIdToken(idToken: string) {
-  const ticket = await googleClient.verifyIdToken({
+  const client = getGoogleClient();
+  const ticket = await client.verifyIdToken({
     idToken,
     audience: process.env.GOOGLE_CLIENT_ID,
   });
@@ -18,6 +32,7 @@ async function verifyGoogleIdToken(idToken: string) {
   if (!payload) throw new Error("Invalid token payload");
   return payload;
 }
+
 
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 

@@ -33,6 +33,8 @@ const NAV_ITEMS = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -113,8 +115,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         queryKey: ["chat", bId],
         queryFn: () => api.get(`/api/chat/${bId}`),
       });
+    } else if (href === "/database") {
+      queryClient.prefetchQuery({
+        queryKey: ["debug-data", bId],
+        queryFn: () => api.get(`/api/business/${bId}/debug-data`),
+      });
     }
   };
+
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 relative">

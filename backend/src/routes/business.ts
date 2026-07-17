@@ -72,6 +72,46 @@ router.get("/:id", async (req: AuthedRequest, res) => {
   res.json({ business });
 });
 
+// Gated debug endpoint that exposes raw PostgreSQL table arrays for demo/audit validation
+router.get("/:id/debug-data", async (req: AuthedRequest, res) => {
+  const business = await prisma.business.findUnique({ where: { id: req.params.id } });
+  if (!business || business.userId !== req.userId) return res.status(404).json({ error: "Not found" });
+
+  const customers = await prisma.customer.findMany({
+    where: { businessId: business.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const sales = await prisma.sale.findMany({
+    where: { businessId: business.id },
+    orderBy: { date: "desc" },
+  });
+
+  const products = await prisma.product.findMany({
+    where: { businessId: business.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const assessment = await prisma.assessment.findUnique({
+    where: { businessId: business.id },
+  });
+
+  const missions = await prisma.mission.findMany({
+    where: { businessId: business.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.json({
+    business,
+    customers,
+    sales,
+    products,
+    assessment,
+    missions,
+  });
+});
+
+
 // CSV uploads: customer | sales | invoice | product
 router.post("/:id/upload/:type", upload.single("file"), async (req: AuthedRequest, res) => {
   const business = await prisma.business.findUnique({ where: { id: req.params.id } });

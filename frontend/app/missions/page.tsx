@@ -20,6 +20,19 @@ export default function MissionsPage() {
   const [celebration, setCelebration] = useState<{ amount: number; title: string } | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
+  // React Query: Mutation to re-run business assessment inline
+  const reRunAssessmentMutation = useMutation({
+    mutationFn: () => api.post(`/api/assessment/${businessId}/run`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["missions", businessId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", businessId] });
+    },
+    onError: (err: any) => {
+      alert("Failed to re-run assessment: " + (err?.message || "Please check your network and try again."));
+    }
+  });
+
+
   // React Query: Fetch missions data
   const { data: missionsPayload, isLoading: fetchLoading } = useQuery({
     queryKey: ["missions", businessId],
@@ -110,8 +123,21 @@ export default function MissionsPage() {
 
   return (
     <AppShell>
-      <h1 className="font-display text-2xl font-semibold mb-1">Growth Missions</h1>
-      <p className="text-zinc-500 dark:text-zinc-400 text-xs mb-6">Prioritized actions, generated from your latest business assessment.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 text-left">
+        <div>
+          <h1 className="font-display text-2xl font-semibold mb-1">Growth Missions</h1>
+          <p className="text-zinc-500 dark:text-zinc-400 text-xs">Prioritized actions, generated from your latest business assessment.</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => reRunAssessmentMutation.mutate()}
+          disabled={reRunAssessmentMutation.isPending}
+          className="text-xs font-semibold self-start sm:self-auto border-zinc-350 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900 transition-all duration-200"
+        >
+          {reRunAssessmentMutation.isPending ? "Scanning..." : "Re-run Assessment"}
+        </Button>
+      </div>
 
       {/* Target Growth Sum Running Total */}
       {pending.length > 0 && totalPendingImpact > 0 && (
@@ -133,21 +159,23 @@ export default function MissionsPage() {
       )}
 
       {pending.length === 0 ? (
-        <Card className="p-8 text-center flex flex-col items-center gap-4 mb-6 max-w-xl mx-auto mt-6 border border-zinc-200 dark:border-zinc-800 shadow-premium">
+        <Card className="p-8 text-center flex flex-col items-center gap-4 mb-6 max-w-xl mx-auto mt-6 border border-zinc-200 dark:border-zinc-800 shadow-premium bg-white dark:bg-zinc-950">
           <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 text-2xl animate-float">
             🎉
           </div>
           <div>
             <h3 className="font-semibold text-base mb-1">All Missions Accomplished!</h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-md mx-auto">
-              You have successfully completed or cleared all pending growth missions. Run a new business assessment from the Discovery panel to scan for fresh revenue-generation opportunities.
+              You have completed or cleared all pending growth missions. Trigger a new business assessment scan to generate fresh strategic growth goals right here.
             </p>
           </div>
-          <Link href="/discovery" className="mt-1">
-            <Button variant="outline" size="sm">
-              Go to Discovery Assessment
-            </Button>
-          </Link>
+          <Button
+            onClick={() => reRunAssessmentMutation.mutate()}
+            disabled={reRunAssessmentMutation.isPending}
+            className="mt-1 font-semibold"
+          >
+            {reRunAssessmentMutation.isPending ? "Generating New Missions..." : "Generate New Growth Missions"}
+          </Button>
         </Card>
       ) : (
         <div className="flex flex-col gap-4 mb-8">

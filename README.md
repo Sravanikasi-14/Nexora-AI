@@ -1,5 +1,20 @@
 # Nexora — AI Chief Growth Officer for SMBs
 
+## ⚙️ Database Architecture
+This project is backed by a **PostgreSQL** database, accessed through **Prisma ORM** (`backend/prisma/schema.prisma`).
+
+### How to inspect the database data:
+1. **Prisma Studio (Recommended)**: You can visually inspect and modify the live database tables (User, Business, Customer, Sale, Assessment, Mission, etc.) inside your browser. Run:
+   ```bash
+   cd backend
+   npx prisma studio
+   ```
+   This starts a visual dashboard at **http://localhost:5555** showing every table with real rows.
+2. **Deployed Environment**: If Nexora is deployed (e.g. on Neon, Supabase, or Render), the database connection string is stored securely in the deployed environment's settings as the `DATABASE_URL`. Read access can be obtained using this connection string or via the hosted database provider's SQL query runner / data explorer.
+3. **In-Product Data Debugger**: To prove exactly what raw records feed the AI agents and dashboard cards without terminal access, logged-in users can click **Data Debugger** in the navigation sidebar. This surfaces read-only tables of all Customers, Sales, Assessments, Products, and Missions belonging to their business.
+
+---
+
 A working full-stack MVP implementing the product spec: AI Business Discovery → gated Business Assessment →
 Dashboard → Customers → AI Chat → Growth Missions → Insights → Automation → Settings, backed by a 7-agent
 pipeline (Discovery → Memory → Digital Presence → Growth → Insight → Automation → Strategy) where **only the

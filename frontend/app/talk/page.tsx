@@ -39,6 +39,8 @@ export default function TalkPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [thinkingMessage, setThinkingMessage] = useState("Understanding your request...");
   const [manualInput, setManualInput] = useState("");
+  const [micError, setMicError] = useState<string | null>(null);
+
 
   const recognitionRef = useRef<any>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -253,7 +255,7 @@ export default function TalkPage() {
     recognitionRef.current = recognition;
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.lang = "en-IN";
+    recognition.lang = "en-US";
 
     recognition.onstart = () => {
       setStatus("listening");
@@ -261,6 +263,7 @@ export default function TalkPage() {
       finalTranscriptRef.current = "";
       setAiResponse(null);
       setCurrentRawText("");
+      setMicError(null);
     };
 
     recognition.onresult = (event: any) => {
@@ -276,16 +279,25 @@ export default function TalkPage() {
       const currentText = finalTranscript || interimTranscript;
       if (currentText) {
         setTranscript(currentText);
-        if (finalTranscript) {
-          finalTranscriptRef.current = finalTranscript;
-        }
+        finalTranscriptRef.current = currentText;
       }
     };
 
+
     recognition.onerror = (event: any) => {
       console.error("Speech recognition error:", event.error);
+      if (event.error === "not-allowed") {
+        setMicError("Microphone access was denied. Please allow microphone permissions in your browser's address bar settings and try again.");
+      } else if (event.error === "no-speech") {
+        setMicError("No speech detected. Please speak clearly or check your microphone input levels.");
+      } else if (event.error === "network") {
+        setMicError("Speech recognition failed due to a network connection error.");
+      } else {
+        setMicError(`Speech detection failed (${event.error}). Please type your query below.`);
+      }
       setStatus("idle");
     };
+
 
     recognition.onend = () => {
       const query = finalTranscriptRef.current;
@@ -303,6 +315,7 @@ export default function TalkPage() {
   // Manual suggestion click handler (Memoized)
   const handleSuggestionClick = useCallback((suggestion: string) => {
     if (status === "listening" || status === "thinking") return;
+    setMicError(null);
     setTranscript(suggestion);
     finalTranscriptRef.current = suggestion;
     processQuery(suggestion);
@@ -317,11 +330,13 @@ export default function TalkPage() {
       window.speechSynthesis.cancel();
     }
 
+    setMicError(null);
     setTranscript(manualInput);
     finalTranscriptRef.current = manualInput;
     processQuery(manualInput);
     setManualInput("");
   }, [manualInput, status, processQuery]);
+
 
   // Replay voice answers from history (Memoized)
   const loadHistoryItem = useCallback((item: VoiceHistoryItem) => {
@@ -403,6 +418,12 @@ export default function TalkPage() {
                   Ask anything about your business or Nexora. I&apos;ll analyze your data and guide you.
                 </p>
               </div>
+
+              {micError && (
+                <div className="w-full max-w-md p-3.5 border border-red-500/20 bg-red-500/[0.02] rounded-md text-red-500 text-xs font-semibold leading-relaxed mt-2">
+                  ⚠️ {micError}
+                </div>
+              )}
 
               {/* Suggestions Grid */}
               <div className="w-full mt-6 space-y-3">

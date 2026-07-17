@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function SetupPasswordPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -14,6 +16,7 @@ export default function SetupPasswordPage() {
   const [checking, setChecking] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("nexora_token") : null;
@@ -67,6 +70,8 @@ export default function SetupPasswordPage() {
     setLoading(true);
     try {
       await api.post("/api/auth/setup-password", { password });
+      // Clear session cache so that passwordSetupRequired updates instantly
+      await queryClient.invalidateQueries({ queryKey: ["businessMe"] });
       // Redirect to onboarding
       router.push("/discovery");
     } catch (err) {
@@ -74,6 +79,7 @@ export default function SetupPasswordPage() {
     } finally {
       setLoading(false);
     }
+
   }
 
   if (checking) {

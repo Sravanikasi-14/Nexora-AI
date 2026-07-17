@@ -89,7 +89,8 @@ function DiscoveryPageContent() {
 
     if (data?.business) {
       const biz = data.business;
-      if (biz.discoveryComplete && !isDemo) {
+      const forceEdit = searchParams.get("edit") === "true" || searchParams.get("reRun") === "true";
+      if (biz.discoveryComplete && !isDemo && !forceEdit) {
         router.replace("/assessment");
         return;
       }

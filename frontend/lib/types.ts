@@ -84,8 +84,11 @@ export interface DashboardPayload {
     aiBusinessInsights: string[];
     recommendedNextActions: string[];
     lastReportId?: string | null;
+    monthlyRevenue?: { month: string; revenue: number }[];
+    segments?: { name: string; count: number; revenue: number; percentage: number; description: string }[];
   } | null;
 }
+
 
 export interface Customer {
   id: string;

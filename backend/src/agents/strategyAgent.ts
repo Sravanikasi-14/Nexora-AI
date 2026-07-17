@@ -167,12 +167,66 @@ export async function runAssessmentPipeline(businessId: string) {
 
   // Auto-generate today's missions from roadmap + risks
   await prisma.mission.deleteMany({ where: { businessId, status: "pending" } });
+
+  // Query already completed/dismissed missions to avoid duplicates
+  const existingMissions = await prisma.mission.findMany({
+    where: { businessId, NOT: { status: "pending" } },
+    select: { title: true }
+  });
+  const existingTitles = new Set(existingMissions.map((m) => m.title.toLowerCase().trim()));
+
   const missionSeeds = [
     { title: recommendedFirstAction, reasoning: "Highest-leverage action from the latest assessment.", priority: "high" },
     ...growth.risks.map((r) => ({ title: r, reasoning: "Flagged as a risk by the Growth Agent.", priority: "medium" })),
   ];
+
+  // Filter out already done/dismissed seeds
+  let filteredSeeds = missionSeeds.filter((m) => !existingTitles.has(m.title.toLowerCase().trim()));
+
+  // If all default seeds are accomplished, call Gemini to generate 3 new, custom growth tasks
+  if (filteredSeeds.length === 0) {
+    try {
+      const response = await generateGroundedText({
+        system: "You are Nexora, a CGO (Chief Growth Officer) AI assistant. You generate structured growth missions (tasks) for small business owners based on their current status. Your task is to output a JSON array containing exactly 3 fresh, advanced growth missions. Format your answer as valid JSON, a plain array of objects: [{\"title\": \"...\", \"reasoning\": \"...\", \"priority\": \"high\" | \"medium\"}]. Do not output markdown codeblocks, just the raw JSON text.",
+        groundingFacts: {
+          businessName: business.name,
+          industry: business.industry,
+          category: business.category,
+          digitalChannels: digital.channels,
+          strengths,
+          weaknesses,
+          completedMissions: Array.from(existingTitles)
+        },
+        instruction: "Based on the business data and the fact that they have completed all initial growth missions, generate 3 fresh, advanced, highly specific, and actionable growth missions to scale their business further. Make them different from the completed ones."
+      });
+
+      if (response) {
+        const cleaned = response.replace(/```json/gi, "").replace(/```/gi, "").trim();
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed)) {
+          filteredSeeds = parsed.map((p) => ({
+            title: String(p.title),
+            reasoning: String(p.reasoning),
+            priority: p.priority === "high" || p.priority === "medium" || p.priority === "low" ? p.priority : "high"
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("[StrategyAgent] Failed to generate fresh custom missions via Gemini, using static fallbacks:", e);
+    }
+  }
+
+  // Fallback list if Gemini fails or is disabled
+  if (filteredSeeds.length === 0) {
+    filteredSeeds = [
+      { title: "Optimize product pricing tiers", reasoning: "A small adjustment in pricing strategy can boost margins by 5-10% without losing customer volume.", priority: "high" },
+      { title: "Run a customer feedback campaign", reasoning: "Gathering testimonials and feedback helps understand why loyal segments buy from you.", priority: "medium" },
+      { title: "Set up automated cart recovery rules", reasoning: "Re-engaging checkout drop-offs captures lost transactional value instantly.", priority: "high" }
+    ];
+  }
+
   await prisma.mission.createMany({
-    data: missionSeeds.slice(0, 5).map((m) => ({
+    data: filteredSeeds.slice(0, 5).map((m) => ({
       businessId,
       title: m.title.slice(0, 140),
       description: m.title,
@@ -180,6 +234,7 @@ export async function runAssessmentPipeline(businessId: string) {
       priority: m.priority,
     })),
   });
+
 
   await recordMemory(businessId, "assessment_run", `Assessment refreshed. Readiness ${readinessScore}, Growth ${growth.growthScore}.`);
 
@@ -193,6 +248,8 @@ export async function getDashboardPayload(businessId: string) {
   const insights = await prisma.insight.findMany({ where: { businessId }, orderBy: { createdAt: "desc" }, take: 5 });
   const dbMetrics = await prisma.dashboardMetrics.findUnique({ where: { businessId } });
   const parsedMetrics = dbMetrics ? JSON.parse(dbMetrics.metricsJson) : null;
+  const customerAnalytics = await prisma.customerAnalytics.findUnique({ where: { businessId } });
+  const parsedAnalytics = customerAnalytics ? JSON.parse(customerAnalytics.dataJson) : null;
 
   if (!assessment || !assessment.hasEnoughData) {
     return {
@@ -235,9 +292,14 @@ export async function getDashboardPayload(businessId: string) {
       message: `${c.name} hasn't purchased in over 60 days.`,
     })),
     automationSuggestionCount: growth.inactiveCustomers.length,
-    advancedMetrics: parsedMetrics,
+    advancedMetrics: parsedMetrics ? {
+      ...parsedMetrics,
+      monthlyRevenue: parsedAnalytics?.monthlyRevenue || [],
+      segments: parsedAnalytics?.segments || [],
+    } : null,
   };
 }
+
 
 /** The only chat entrypoint the frontend calls. Grounds every answer in real data. */
 export async function answerStrategyChat(businessId: string, question: string) {
