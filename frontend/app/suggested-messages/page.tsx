@@ -703,7 +703,7 @@ export default function SuggestedMessagesPage() {
 
                   <div className="text-xs">
                     <span className="text-[9px] text-zinc-450 uppercase tracking-wider block mb-0.5">Reason for Suggestion</span>
-                    <p className="text-zinc-650 dark:text-zinc-400 leading-relaxed font-medium">{d.reason || d.reasoning || "—"}</p>
+                    <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed font-medium">{d.reason || d.reasoning || "—"}</p>
                   </div>
 
                   <div className="text-xs bg-zinc-50 dark:bg-zinc-900/40 p-3 rounded border border-zinc-250/50 dark:border-zinc-800">

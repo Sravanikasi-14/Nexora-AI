@@ -74,19 +74,19 @@ export default function CustomerReportDrawer({ onClose, report }: CustomerReport
           <div className="space-y-4 mb-6">
             <div>
               <h4 className="text-[10px] font-semibold text-zinc-450 dark:text-zinc-550 uppercase tracking-wider mb-1">Revenue & Cohort Analysis</h4>
-              <p className="text-xs text-zinc-650 dark:text-zinc-400 leading-normal">{report.revenueAnalysis}</p>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-normal">{report.revenueAnalysis}</p>
             </div>
             <div>
               <h4 className="text-[10px] font-semibold text-zinc-450 dark:text-zinc-550 uppercase tracking-wider mb-1">Customer Segmentation Narrative</h4>
-              <p className="text-xs text-zinc-650 dark:text-zinc-400 leading-normal">{report.customerSegmentsInfo}</p>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-normal">{report.customerSegmentsInfo}</p>
             </div>
             <div>
               <h4 className="text-[10px] font-semibold text-zinc-450 dark:text-zinc-550 uppercase tracking-wider mb-1">Product Demand Performance</h4>
-              <p className="text-xs text-zinc-650 dark:text-zinc-400 leading-normal">{report.productPerformanceInfo}</p>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-normal">{report.productPerformanceInfo}</p>
             </div>
             <div>
               <h4 className="text-[10px] font-semibold text-zinc-450 dark:text-zinc-550 uppercase tracking-wider mb-1">Churn Risks Analysis</h4>
-              <p className="text-xs text-zinc-650 dark:text-zinc-400 leading-normal">{report.churnRiskInfo}</p>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-normal">{report.churnRiskInfo}</p>
             </div>
           </div>
 
@@ -125,7 +125,7 @@ export default function CustomerReportDrawer({ onClose, report }: CustomerReport
                   <p className="text-[11px] text-zinc-400 dark:text-zinc-550">
                     <span className="font-semibold text-accent">Target:</span> {camp.target} | <span className="font-semibold text-accent2">Channel:</span> {camp.channel}
                   </p>
-                  <p className="text-[11px] text-zinc-650 dark:text-zinc-350 italic mt-1 bg-white dark:bg-zinc-950 p-2 rounded-md border border-zinc-200 dark:border-zinc-800">
+                  <p className="text-[11px] text-zinc-600 dark:text-zinc-350 italic mt-1 bg-white dark:bg-zinc-950 p-2 rounded-md border border-zinc-200 dark:border-zinc-800">
                     &quot;{camp.message}&quot;
                   </p>
                 </Card>
@@ -156,7 +156,7 @@ export default function CustomerReportDrawer({ onClose, report }: CustomerReport
                     <span className="font-semibold text-accent2">{aut.type}</span>
                     <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Trigger: {aut.trigger}</span>
                   </div>
-                  <p className="text-[11px] text-zinc-650 dark:text-zinc-350 italic mt-1 bg-white dark:bg-zinc-950 p-2 rounded-md border border-zinc-200 dark:border-zinc-800">
+                  <p className="text-[11px] text-zinc-600 dark:text-zinc-350 italic mt-1 bg-white dark:bg-zinc-950 p-2 rounded-md border border-zinc-200 dark:border-zinc-800">
                     Template: &quot;{aut.template}&quot;
                   </p>
                 </Card>

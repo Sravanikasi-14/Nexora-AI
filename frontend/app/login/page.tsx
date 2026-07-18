@@ -446,32 +446,7 @@ function AuthForm() {
                 </motion.div>
               </form>
 
-              {/* Social Google Sign-In */}
-              <div className="mt-4 flex flex-col gap-4">
-                <div className="flex items-center my-1">
-                  <div className="flex-1 border-t border-zinc-200 dark:border-zinc-800"></div>
-                  <span className="px-3 text-xs text-zinc-400 font-medium">or</span>
-                  <div className="flex-1 border-t border-zinc-200 dark:border-zinc-800"></div>
-                </div>
 
-                <div className="flex justify-center w-full">
-                  {googleClientId ? (
-                    <GoogleLogin
-                      onSuccess={handleGoogleSuccess}
-                      onError={handleGoogleError}
-                    />
-                  ) : (
-                    <div className="text-center p-3 border border-amber-500/25 bg-amber-500/[0.02] rounded-md w-full">
-                      <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1.5 leading-none">
-                        ⚠️ Google OAuth is Disabled
-                      </p>
-                      <p className="text-[9px] text-zinc-550 dark:text-zinc-450 mt-1.5 leading-normal max-w-xs mx-auto text-center">
-                        Add `NEXT_PUBLIC_GOOGLE_CLIENT_ID` to your local environment file (`frontend/.env.local`) to activate Google Sign-In options.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
 
               {/* Try Nexora for Demo Business Option */}
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2">

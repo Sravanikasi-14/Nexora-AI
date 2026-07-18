@@ -545,7 +545,7 @@ export default function CustomerDetailPage() {
 
           <div>
             <span className="text-[9px] text-zinc-450 dark:text-zinc-500 uppercase tracking-wider block mb-1">Notes / Preferences</span>
-            <p className="text-xs text-zinc-650 dark:text-zinc-400 bg-zinc-50/50 dark:bg-zinc-900/10 p-2.5 rounded border border-zinc-200 dark:border-zinc-800 leading-relaxed whitespace-pre-line">
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 bg-zinc-50/50 dark:bg-zinc-900/10 p-2.5 rounded border border-zinc-200 dark:border-zinc-800 leading-relaxed whitespace-pre-line">
               {customer.notes || "No notes on profile."}
             </p>
           </div>

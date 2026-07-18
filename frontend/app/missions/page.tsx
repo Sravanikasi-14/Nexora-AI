@@ -200,7 +200,7 @@ export default function MissionsPage() {
                         </button>
                       )}
                     </div>
-                    <p className="text-xs text-zinc-650 dark:text-zinc-400 leading-relaxed">
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
                       <strong className="text-zinc-900 dark:text-zinc-100 font-semibold">Recommendation:</strong> {m.reasoning}
                     </p>
 
