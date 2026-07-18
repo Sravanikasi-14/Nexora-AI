@@ -159,6 +159,7 @@ const itemVariants: any = {
 export default function CustomerAnalyticsPage() {
   const { businessId, loading: sessionLoading } = useSession({ requireBusiness: true });
   const queryClient = useQueryClient();
+  const shouldReduceMotion = useReducedMotion();
 
   // Modals & Panels State
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -366,10 +367,6 @@ export default function CustomerAnalyticsPage() {
   }
 
   const healthScore = Math.max(0, Math.min(100, latestReport?.customerHealthScore || (customers.length > 0 ? Math.round(((customers.length - stats.derivedChurnedCount) / customers.length) * 100) : 85)));
-
-
-
-  const shouldReduceMotion = useReducedMotion();
 
   return (
     <AppShell>
