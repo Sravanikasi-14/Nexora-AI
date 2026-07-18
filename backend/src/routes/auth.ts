@@ -377,9 +377,68 @@ router.patch("/profile", requireAuth, async (req: AuthedRequest, res) => {
   }
 });
 
-// Logout endpoint (requested by prompt specifications)
-router.post("/logout", async (req, res) => {
-  res.json({ success: true, message: "Logged out successfully" });
+// Delete Account endpoint (clean transactional delete of user and all related business records)
+router.delete("/account", requireAuth, async (req: AuthedRequest, res) => {
+  const userId = req.userId!;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Find all business IDs for this user
+    const businesses = await prisma.business.findMany({ where: { userId } });
+    const businessIds = businesses.map((b) => b.id);
+
+    if (businessIds.length > 0) {
+      // 1. Delete Sales (references Customer and Business)
+      await prisma.sale.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 2. Delete Customers
+      await prisma.customer.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 3. Delete Products
+      await prisma.product.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 4. Delete Assessments
+      await prisma.assessment.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 5. Delete Missions
+      await prisma.mission.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 6. Delete Insights
+      await prisma.insight.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 7. Delete Automation Drafts
+      await prisma.automationDraft.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 8. Delete Chat Messages
+      await prisma.chatMessage.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 9. Delete Memory Events
+      await prisma.memoryEvent.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 10. Delete Uploaded Files
+      await prisma.uploadedCustomerFile.deleteMany({ where: { businessId: { in: businessIds } } });
+      await prisma.uploadedSalesFile.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 11. Delete Analytics
+      await prisma.customerAnalytics.deleteMany({ where: { businessId: { in: businessIds } } });
+      await prisma.salesAnalytics.deleteMany({ where: { businessId: { in: businessIds } } });
+      await prisma.generatedReport.deleteMany({ where: { businessId: { in: businessIds } } });
+      await prisma.dashboardMetrics.deleteMany({ where: { businessId: { in: businessIds } } });
+
+      // 12. Delete Businesses
+      await prisma.business.deleteMany({ where: { userId } });
+    }
+
+    // 13. Finally delete the user
+    await prisma.user.delete({ where: { id: userId } });
+
+    console.log(`[AccountDelete] User ${userId} and all associated records deleted successfully.`);
+    res.json({ success: true, message: "Account deleted successfully." });
+  } catch (err) {
+    console.error("Account deletion failed:", err);
+    res.status(500).json({ error: "Failed to delete account. Please try again." });
+  }
 });
 
 export default router;

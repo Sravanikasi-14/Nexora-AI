@@ -79,6 +79,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   function logout() {
     api.post("/api/auth/logout").catch(() => {});
+    queryClient.clear();
     setToken(null);
     setBusinessId(null);
     setStoredUser(null);

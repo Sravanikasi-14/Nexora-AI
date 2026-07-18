@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import { useSession } from "@/lib/useSession";
 import { api, getStoredUser, setStoredUser, ApiError } from "@/lib/api";
@@ -13,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Spinner, Skeleton } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Globe, MapPin, Target, ExternalLink, Edit3, User, Info, X } from "lucide-react";
+import { Globe, MapPin, Target, ExternalLink, Edit3, User, Info, X, AlertTriangle } from "lucide-react";
 
 const AVATAR_PRESETS = [
   "bg-gradient-to-tr from-blue-500 to-indigo-500",
@@ -59,6 +60,33 @@ export default function SettingsPage() {
   });
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Delete Account states
+  const router = useRouter();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText !== "DELETE MY ACCOUNT") return;
+    setDeletingAccount(true);
+    setDeleteError(null);
+    try {
+      await api.delete("/api/auth/account");
+      queryClient.clear();
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("nexora_token");
+        localStorage.removeItem("nexora_business_id");
+        localStorage.removeItem("nexora_user");
+      }
+      router.push("/login");
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : "Failed to delete account. Please try again.");
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
 
   // React Query Mutation: Save Profile Details
   const saveProfileMutation = useMutation({
@@ -426,6 +454,109 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Danger Zone / Delete Account */}
+      <Card className="mt-6 border border-red-500/20 dark:border-red-900/30 bg-red-500/[0.01] dark:bg-red-950/[0.01] shadow-card">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-red-500/10 dark:border-red-950/20 p-6 pb-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="text-red-500" size={16} />
+            <span className="text-sm font-semibold text-red-600 dark:text-red-400">Danger Zone</span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold text-zinc-900 dark:text-white mb-1">Delete Account</p>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-md">
+              Permanently delete your account, your business profile, and all associated customers, sales data, assessments, and AI growth configurations. This action is irreversible.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowDeleteModal(true)}
+            className="text-xs font-semibold px-4 py-2 bg-red-600 hover:bg-red-700 text-white shrink-0"
+          >
+            Delete Account...
+          </Button>
+        </CardContent>
+      </Card>
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <Card className="w-full max-w-md p-6 relative bg-white dark:bg-zinc-950 shadow-premium border border-zinc-200 dark:border-zinc-800 animate-fade-in text-left">
+            <button
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"
+              onClick={() => {
+                setShowDeleteModal(false);
+                setDeleteConfirmText("");
+                setDeleteError(null);
+              }}
+              title="Close Dialog"
+              disabled={deletingAccount}
+            >
+              <X size={18} />
+            </button>
+            <h2 className="font-display text-sm font-semibold mb-1 flex items-center gap-2 text-red-600 dark:text-red-400">
+              <AlertTriangle size={16} /> Delete Account Permanently?
+            </h2>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-6 border-b border-zinc-150 dark:border-zinc-850 pb-2">
+              Please confirm that you want to delete your account.
+            </p>
+
+            <div className="space-y-4">
+              <div className="bg-red-500/[0.03] border border-red-500/10 p-3.5 rounded-lg text-xs leading-relaxed text-red-600 dark:text-red-400 font-medium">
+                ⚠️ Warning: Deleting your account will instantly and permanently erase all your data from our database. This action is irreversible.
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-bold text-zinc-400">Type <span className="font-mono select-all font-bold text-zinc-900 dark:text-zinc-100">DELETE MY ACCOUNT</span> to confirm</Label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETE MY ACCOUNT"
+                  className="h-9 text-xs"
+                  disabled={deletingAccount}
+                />
+              </div>
+
+              {deleteError && (
+                <Alert variant="destructive" className="py-2">
+                  <AlertDescription className="text-xs font-semibold">{deleteError}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeleteConfirmText("");
+                    setDeleteError(null);
+                  }}
+                  disabled={deletingAccount}
+                  className="h-8 px-3 text-xs font-semibold"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDeleteAccount}
+                  isLoading={deletingAccount}
+                  disabled={deleteConfirmText !== "DELETE MY ACCOUNT" || deletingAccount}
+                  className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Confirm Delete
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Unified Business & Profiles Edit Modal */}
       {showBusinessModal && (
