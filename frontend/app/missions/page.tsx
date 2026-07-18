@@ -189,7 +189,7 @@ export default function MissionsPage() {
                       <Badge variant={m.priority === "high" ? "destructive" : "warning"}>
                         {m.priority} Priority
                       </Badge>
-                      <p className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm md:text-base leading-snug">{m.title}</p>
+                      <p className="font-semibold text-ink text-sm md:text-base leading-snug">{m.title}</p>
                       {m.projectedImpact && (
                         <button
                           onClick={() => setExpandedMissionId(isExpanded ? null : m.id)}
@@ -266,7 +266,7 @@ export default function MissionsPage() {
                       }`}>
                         {isCompleted ? "✓" : "✕"}
                       </span>
-                      <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm">{m.title}</span>
+                      <span className="font-semibold text-ink text-xs sm:text-sm">{m.title}</span>
                     </div>
                     <Badge variant={isCompleted ? "success" : "secondary"}>
                       {m.status === "done" ? "Completed" : "Dismissed"}

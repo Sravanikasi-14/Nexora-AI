@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { useSession } from "@/lib/useSession";
 import { api, getStoredUser, setStoredUser, ApiError } from "@/lib/api";
@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Spinner } from "@/components/ui/spinner";
+import { Spinner, Skeleton } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Globe, MapPin, Target, ExternalLink, Edit3, User, Info, X } from "lucide-react";
@@ -25,12 +25,21 @@ const AVATAR_PRESETS = [
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { business, loading } = useSession({ requireBusiness: true });
-  const currentUser = getStoredUser();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [profileName, setProfileName] = useState("");
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
+
+  useEffect(() => {
+    const user = getStoredUser();
+    setCurrentUser(user);
+    if (user) {
+      setProfileName(user.name);
+      setSelectedAvatar(user.avatar || null);
+    }
+  }, []);
 
   // Profile Edit states
   const [editProfileMode, setEditProfileMode] = useState(false);
-  const [profileName, setProfileName] = useState(currentUser?.name || "");
-  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(currentUser?.avatar || null);
   const [profileError, setProfileError] = useState<string | null>(null);
 
   // Business Edit Modal states
@@ -99,9 +108,41 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex flex-col items-center justify-center min-h-[300px] text-zinc-500">
-          <Spinner size="lg" />
-          <p className="text-xs mt-3">Loading settings…</p>
+        <div className="space-y-8 max-w-4xl mx-auto py-6 text-left">
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-1/3" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-1 space-y-4">
+              <Card className="p-6">
+                <div className="flex flex-col items-center gap-4">
+                  <Skeleton className="h-20 w-20 rounded-full" />
+                  <Skeleton className="h-5 w-2/3" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              </Card>
+            </div>
+            <div className="md:col-span-2 space-y-6">
+              <Card className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-1/4" />
+                  <Skeleton className="h-1 bg-zinc-200 dark:bg-zinc-800 w-full" />
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-12" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                  <Skeleton className="h-9 w-24" />
+                </div>
+              </Card>
+            </div>
+          </div>
         </div>
       </AppShell>
     );

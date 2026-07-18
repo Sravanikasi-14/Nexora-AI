@@ -27,7 +27,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/talk", label: "Talk with Nexora", icon: Mic },
   { href: "/customers", label: "Customer Analytics", icon: BarChart3 },
-  { href: "/chat", label: "AI Chat", icon: Bot },
+  { href: "/chat", label: "AI Assistant", icon: Bot },
   { href: "/suggested-messages", label: "AI Suggested Messages", icon: MessageSquare },
   { href: "/missions", label: "Growth Missions", icon: Target },
   { href: "/insights", label: "Insights", icon: Lightbulb },
@@ -41,12 +41,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     setMounted(true);
+    setUser(getStoredUser());
     const savedTheme = localStorage.getItem("nexora_theme") as "light" | "dark" | null;
     if (savedTheme) {
       setTheme(savedTheme);
@@ -72,7 +74,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const user = mounted ? getStoredUser() : null;
+
 
   function logout() {
     api.post("/api/auth/logout").catch(() => {});
@@ -87,7 +89,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const bId = getBusinessId();
     if (!bId) return;
 
-    if (href === "/dashboard") {
+    if (href === "/dashboard" || href === "/talk") {
       queryClient.prefetchQuery({
         queryKey: ["dashboard", bId],
         queryFn: () => api.get(`/api/dashboard/${bId}`),
@@ -117,17 +119,45 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         queryKey: ["chat", bId],
         queryFn: () => api.get(`/api/chat/${bId}`),
       });
-    } else if (href === "/database") {
-      queryClient.prefetchQuery({
-        queryKey: ["debug-data", bId],
-        queryFn: () => api.get(`/api/business/${bId}/debug-data`),
-      });
     }
   };
 
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 relative">
+    <div className="h-screen flex flex-col md:flex-row bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 relative overflow-hidden">
+      {/* Premium Gradient Mesh Background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 select-none">
+        {/* Soft radial glow top right */}
+        <div className="absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-blue-500/[0.03] to-indigo-500/[0.01] blur-[100px] dark:from-blue-500/[0.02] dark:to-transparent" />
+        {/* Soft radial glow bottom left */}
+        <div className="absolute bottom-1/4 left-1/4 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-purple-500/[0.03] to-pink-500/[0.01] blur-[120px] dark:from-purple-500/[0.01] dark:to-transparent" />
+        {/* Tiny breathing floating blurs */}
+        <motion.div 
+          animate={shouldReduceMotion ? {} : { 
+            y: [0, -15, 0],
+            scale: [1, 1.05, 1],
+          }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute top-1/3 left-1/3 w-72 h-72 rounded-full bg-blue-500/[0.015] blur-[80px] dark:bg-blue-600/[0.01]"
+        />
+        <motion.div 
+          animate={shouldReduceMotion ? {} : { 
+            y: [0, 20, 0],
+            scale: [1, 1.08, 1],
+          }}
+          transition={{
+            duration: 16,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2,
+          }}
+          className="absolute bottom-1/3 right-1/3 w-80 h-80 rounded-full bg-purple-500/[0.015] blur-[90px] dark:bg-purple-600/[0.01]"
+        />
+      </div>
       {/* Mobile Sticky Header */}
       <header className="md:hidden flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 z-30 sticky top-0">
         <Link href="/dashboard" className="flex items-center gap-2">
@@ -157,30 +187,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Navigation Sidebar */}
       <aside
         className={cn(
-          "fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 w-64 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 flex flex-col p-5 gap-6 z-50 transform transition-transform duration-300 ease-in-out md:transform-none md:shrink-0",
+          "fixed md:sticky md:top-4 md:h-[calc(100vh-2rem)] inset-y-0 left-0 w-52 m-0 md:m-4 rounded-none md:rounded-[24px] bg-white/70 dark:bg-zinc-950/75 backdrop-blur-xl border-r md:border border-zinc-200/50 dark:border-zinc-900/60 flex flex-col p-4 gap-5 z-50 transform transition-transform duration-300 ease-in-out md:transform-none md:shrink-0 shadow-premium",
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
         {/* Header container inside Sidebar */}
-        <div className="flex items-center justify-between md:block">
-          <Link href="/dashboard" className="flex items-center gap-2 px-1">
-            <div className="w-7 h-7 rounded bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center font-display font-bold text-white dark:text-zinc-900 text-sm shadow">
+        <div className="flex items-center justify-between md:block px-1.5 py-1">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-[8px] bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center font-display font-extrabold text-white text-xs shadow-md shadow-blue-500/20">
               N
             </div>
-            <span className="font-display font-semibold text-base tracking-tight">Nexora</span>
+            <span className="font-display font-bold text-xs tracking-wider text-zinc-800 dark:text-zinc-200 uppercase">Nexora</span>
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="md:hidden p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-550 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 transition-colors"
+            className="md:hidden p-1.5 rounded-[12px] hover:bg-zinc-150 dark:hover:bg-zinc-900 text-zinc-550 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 transition-colors"
             title="Close Menu"
             type="button"
           >
-            <X size={18} strokeWidth={2} />
+            <X size={15} strokeWidth={2.2} />
           </button>
         </div>
 
         {/* Navigation Items Link List */}
-        <nav className="flex flex-col gap-1 overflow-y-auto">
+        <nav className="flex flex-col gap-1 overflow-y-auto relative">
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
@@ -190,63 +220,83 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 href={item.href}
                 onMouseEnter={() => handlePrefetch(item.href)}
                 className={cn(
-                  "group flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150",
+                  "group relative flex items-center gap-2.5 px-3 py-2 rounded-[14px] text-[11px] font-bold transition-all duration-200",
                   active
-                    ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-550 font-semibold"
-                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50"
+                    ? "text-white"
+                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 hover:bg-zinc-150/30 dark:hover:bg-zinc-900/40"
                 )}
               >
+                {/* Active Indicator Layer */}
+                {active && (
+                  <motion.div
+                    layoutId="activeNavIndicator"
+                    className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[14px] -z-10 shadow-sm shadow-blue-500/20"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+
                 <span
                   className={cn(
-                    "transition-all duration-150 shrink-0",
-                    active ? "text-zinc-900 dark:text-zinc-50" : "text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-900 dark:group-hover:text-zinc-50"
+                    "transition-all duration-300 shrink-0",
+                    active ? "text-white" : "text-zinc-400 dark:text-zinc-500 group-hover:scale-110 group-hover:rotate-6 group-hover:text-zinc-900 dark:group-hover:text-zinc-50"
                   )}
                 >
-                  <Icon size={18} strokeWidth={2} />
+                  <Icon size={14} strokeWidth={2.2} />
                 </span>
-                {item.label}
+                <span className="truncate">{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
         {/* Sidebar Footer Controls */}
-        <div className="mt-auto pt-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="px-1 min-w-0 flex-1 flex items-center gap-3">
-              {user?.avatar ? (
-                <div className={cn("w-7 h-7 rounded-full shrink-0 flex items-center justify-center font-bold text-white text-xs", user.avatar)}>
+        <div className="mt-auto pt-3.5 border-t border-zinc-200/50 dark:border-zinc-900 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="min-w-0 flex-1 flex items-center gap-2">
+              {user?.avatar && user.avatar.startsWith("http") ? (
+                // Google profile picture URL
+                <img
+                  src={user.avatar}
+                  alt={user.name || "User"}
+                  className="w-6 h-6 rounded-full shrink-0 object-cover shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-800"
+                  referrerPolicy="no-referrer"
+                />
+              ) : user?.avatar ? (
+                // Color gradient avatar (password sign-up users)
+                <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center font-bold text-white text-[10px] shadow-sm ${user.avatar}`}>
                   {user.name?.charAt(0).toUpperCase()}
                 </div>
               ) : (
-                <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800 shrink-0 flex items-center justify-center font-bold text-xs">
+                <div className="w-6 h-6 rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border border-zinc-250 dark:border-zinc-800 shrink-0 flex items-center justify-center font-bold text-[10px] shadow-sm">
                   {user?.name?.charAt(0).toUpperCase() || "B"}
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate leading-snug">{user?.name || "Business Owner"}</p>
-                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate leading-none mt-0.5">{user?.email}</p>
+                <p className="text-[10px] font-bold text-zinc-800 dark:text-zinc-200 truncate leading-tight">{user?.name || "Business Owner"}</p>
+                <p className="text-[8px] text-zinc-400 dark:text-zinc-500 truncate leading-none mt-0.5">{user?.email}</p>
               </div>
             </div>
+            
             <button
               onClick={toggleTheme}
-              className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 transition-colors flex items-center justify-center shrink-0 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800"
+              className="p-1.5 rounded-[10px] hover:bg-zinc-150 dark:hover:bg-zinc-900 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 transition-colors flex items-center justify-center shrink-0 border border-zinc-200/40 dark:border-zinc-800/40 shadow-sm"
               title="Toggle Theme"
               type="button"
             >
               {theme === "dark" ? (
-                <Sun size={16} strokeWidth={2} />
+                <Sun size={13} strokeWidth={2.2} />
               ) : (
-                <Moon size={16} strokeWidth={2} />
+                <Moon size={13} strokeWidth={2.2} />
               )}
             </button>
           </div>
+
           <button
             onClick={logout}
-            className="group w-full justify-start text-xs font-medium px-3 py-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 transition-colors flex items-center gap-3 border border-transparent"
+            className="group w-full justify-start text-[10px] font-bold px-3 py-2 rounded-[14px] hover:bg-red-500/10 dark:hover:bg-red-950/20 text-zinc-500 hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-400 transition-colors flex items-center gap-2 border border-transparent"
           >
-            <span className="transition-all duration-150 shrink-0 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-900 dark:group-hover:text-zinc-50">
-              <LogOut size={16} strokeWidth={2} />
+            <span className="transition-transform duration-300 shrink-0 text-zinc-400 dark:text-zinc-500 group-hover:scale-110 group-hover:-translate-x-0.5 group-hover:text-red-500 dark:group-hover:text-red-400">
+              <LogOut size={13} strokeWidth={2.2} />
             </span>
             Sign out
           </button>
@@ -254,7 +304,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Page Content Body Area */}
-      <main className="flex-1 min-w-0 overflow-y-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto relative z-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}

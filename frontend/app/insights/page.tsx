@@ -21,11 +21,11 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
+  AreaChart,
+  Area,
 } from "recharts";
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -54,6 +54,20 @@ const CATEGORY_BG_ICONS: Record<string, string> = {
   digital: "text-blue-500 bg-blue-500/[0.04]",
   customers: "text-indigo-500 bg-indigo-500/[0.04]",
   competitive: "text-amber-500 bg-amber-500/[0.04]",
+};
+
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.05,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
 };
 
 export default function InsightsPage() {
@@ -103,20 +117,7 @@ export default function InsightsPage() {
   const adv = dashboardData?.advancedMetrics;
   const hasAdvanced = !!adv;
 
-  // Stagger variants
-  const containerVariants = {
-    hidden: {},
-    visible: {
-      transition: {
-        staggerChildren: 0.05,
-      },
-    },
-  };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 16 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
-  };
 
   return (
     <AppShell>
@@ -144,7 +145,8 @@ export default function InsightsPage() {
       ) : (
         <motion.div
           initial={shouldReduceMotion ? {} : "hidden"}
-          animate="visible"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-40px" }}
           variants={containerVariants}
           className="flex flex-col gap-6"
         >
@@ -205,17 +207,24 @@ export default function InsightsPage() {
                               className="w-24 h-10 border border-zinc-100 dark:border-zinc-900 rounded p-1 flex items-center bg-zinc-50/[0.01]"
                             >
                               <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={adv.monthlyRevenue}>
-                                  <Line
+                                <AreaChart data={adv.monthlyRevenue}>
+                                  <defs>
+                                    <linearGradient id="colorRevenueInsight" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="5%" stopColor="var(--accent2)" stopOpacity={0.4}/>
+                                      <stop offset="95%" stopColor="var(--accent2)" stopOpacity={0}/>
+                                    </linearGradient>
+                                  </defs>
+                                  <Area
                                     type="monotone"
                                     dataKey="revenue"
                                     stroke="var(--accent2)"
                                     strokeWidth={1.5}
-                                    dot={false}
+                                    fillOpacity={1}
+                                    fill="url(#colorRevenueInsight)"
                                     isAnimationActive={!shouldReduceMotion}
                                     animationDuration={800}
                                   />
-                                </LineChart>
+                                </AreaChart>
                               </ResponsiveContainer>
                             </motion.div>
                           ) : (

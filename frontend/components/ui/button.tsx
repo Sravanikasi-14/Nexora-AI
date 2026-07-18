@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-zinc-900 text-zinc-50 shadow hover:bg-zinc-800/90 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-100/90",
+          "bg-blue-600 text-zinc-50 shadow hover:bg-blue-700 dark:bg-blue-600 dark:text-zinc-50 dark:hover:bg-blue-700",
         destructive:
           "bg-red-500 text-zinc-50 shadow-sm hover:bg-red-500/90 dark:bg-red-900 dark:text-zinc-50 dark:hover:bg-red-900/90",
         success:
@@ -54,8 +54,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={isLoading || (props as any).disabled}
         {...props}
       >
-        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {children}
+        {isLoading ? (
+          <span className="flex items-center justify-center gap-1.5 py-0.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: "0ms", animationDuration: "0.8s" }} />
+            <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: "150ms", animationDuration: "0.8s" }} />
+            <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: "300ms", animationDuration: "0.8s" }} />
+          </span>
+        ) : (
+          children
+        )}
       </Comp>
     );
   }

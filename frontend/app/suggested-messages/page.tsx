@@ -16,11 +16,39 @@ import { MessageSquare, CheckCircle2, XCircle, Search, Sparkles, Send, Check } f
 
 // Lazy load the Edit and Tone/Regenerate modals to minimize main JS bundle size
 const MessageEditModal = dynamic(() => import("@/components/MessageEditModal"), {
-  loading: () => <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center text-white">Loading Edit...</div>,
+  loading: () => (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+      <div className="w-[90%] max-w-lg bg-white/70 dark:bg-zinc-950/75 border border-zinc-200/40 dark:border-zinc-900/50 backdrop-blur-xl rounded-[24px] p-6 space-y-6 shadow-premium text-left">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+        <Skeleton className="h-32 w-full rounded-[16px]" />
+        <div className="flex gap-2 justify-end">
+          <Skeleton className="h-9 w-20 rounded-[12px]" />
+          <Skeleton className="h-9 w-24 rounded-[12px]" />
+        </div>
+      </div>
+    </div>
+  ),
 });
 
 const MessageRegenerateModal = dynamic(() => import("@/components/MessageRegenerateModal"), {
-  loading: () => <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center text-white">Loading Tone Wizard...</div>,
+  loading: () => (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+      <div className="w-[90%] max-w-lg bg-white/70 dark:bg-zinc-950/75 border border-zinc-200/40 dark:border-zinc-900/50 backdrop-blur-xl rounded-[24px] p-6 space-y-6 shadow-premium text-left">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+        <Skeleton className="h-32 w-full rounded-[16px]" />
+        <div className="flex gap-2 justify-end">
+          <Skeleton className="h-9 w-20 rounded-[12px]" />
+          <Skeleton className="h-9 w-24 rounded-[12px]" />
+        </div>
+      </div>
+    </div>
+  ),
 });
 
 export default function SuggestedMessagesPage() {
@@ -480,13 +508,12 @@ export default function SuggestedMessagesPage() {
         </Card>
       ) : (
         <>
-          {/* Desktop Table View */}
           <Card className="hidden md:block overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-premium">
             <div className="overflow-x-auto scrollbar-thin">
-              <table>
+              <table className="w-full text-left min-w-[1250px]">
                 <thead>
                   <tr className="bg-zinc-50/50 dark:bg-zinc-900/10 text-xs">
-                    <th className="w-10">
+                    <th className="w-12 py-3.5 px-5">
                       <input
                         type="checkbox"
                         className="rounded border-zinc-250 bg-white dark:bg-zinc-900 text-zinc-900 focus:ring-zinc-950"
@@ -494,19 +521,19 @@ export default function SuggestedMessagesPage() {
                         onChange={() => toggleSelectAll(filteredDrafts)}
                       />
                     </th>
-                    <th>Customer</th>
-                    <th>Phone Number</th>
-                    <th>Lead Status</th>
-                    <th>Category</th>
-                    <th>Reason</th>
-                    <th>Confidence</th>
-                    <th className="min-w-[300px]">AI Suggested Message</th>
-                    <th className="min-w-[200px]">AI Explanation</th>
-                    <th>Generated</th>
-                    <th className="text-right"></th>
+                    <th className="py-3.5 px-5">Customer</th>
+                    <th className="py-3.5 px-5">Phone Number</th>
+                    <th className="py-3.5 px-5">Lead Status</th>
+                    <th className="py-3.5 px-5">Category</th>
+                    <th className="py-3.5 px-5 min-w-[220px] max-w-xs">Reason</th>
+                    <th className="py-3.5 px-5">Confidence</th>
+                    <th className="py-3.5 px-5 min-w-[320px]">AI Suggested Message</th>
+                    <th className="py-3.5 px-5 min-w-[220px] max-w-xs">AI Explanation</th>
+                    <th className="py-3.5 px-5">Generated</th>
+                    <th className="text-right py-3.5 px-5"></th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-zinc-200/10">
                   {filteredDrafts.map((d) => {
                     const leadStatus = d.customer?.leadStatus || "New";
                     const isExpanded = expandedDrafts[d.id] || false;
@@ -525,8 +552,8 @@ export default function SuggestedMessagesPage() {
                     }
 
                     return (
-                      <tr key={d.id}>
-                        <td>
+                      <tr key={d.id} className="hover:bg-zinc-50/20 dark:hover:bg-zinc-900/10 transition-colors">
+                        <td className="py-4 px-5">
                           <input
                             type="checkbox"
                             className="rounded border-zinc-250 bg-white dark:bg-zinc-900 text-zinc-900 focus:ring-zinc-950"
@@ -534,7 +561,7 @@ export default function SuggestedMessagesPage() {
                             onChange={() => handleSelectRow(d.id)}
                           />
                         </td>
-                        <td className="font-semibold">
+                        <td className="font-semibold py-4 px-5">
                           {d.customer ? (
                             <Link href={`/customers/${d.customer.id}`} className="hover:underline text-accent">
                               {d.customer.name}
@@ -543,29 +570,29 @@ export default function SuggestedMessagesPage() {
                             "—"
                           )}
                         </td>
-                        <td className="text-xs">{d.customer?.phone || "—"}</td>
-                        <td>
+                        <td className="text-xs py-4 px-5">{d.customer?.phone || "—"}</td>
+                        <td className="py-4 px-5">
                           <Badge variant={statusVariant}>{leadStatus}</Badge>
                         </td>
-                        <td>
+                        <td className="py-4 px-5">
                           <Badge variant="secondary" className="uppercase text-[9px] font-semibold">{d.category || "general"}</Badge>
                         </td>
-                        <td className="text-xs text-zinc-500">{d.reason || d.reasoning || "—"}</td>
-                        <td className={`font-bold text-xs ${confidenceColor}`}>{d.confidence || "Medium"}</td>
-                        <td className="text-xs font-mono max-w-sm">
+                        <td className="text-xs text-zinc-500 py-4 px-5 min-w-[220px] max-w-xs leading-normal">{d.reason || d.reasoning || "—"}</td>
+                        <td className={`font-bold text-xs py-4 px-5 ${confidenceColor}`}>{d.confidence || "Medium"}</td>
+                        <td className="text-xs font-mono max-w-sm py-4 px-5 min-w-[320px] leading-normal">
                           <div 
                             onClick={() => setExpandedDrafts((prev) => ({ ...prev, [d.id]: !isExpanded }))}
                             className="cursor-pointer"
                           >
-                            <p className={`whitespace-pre-wrap leading-normal ${!isExpanded ? "line-clamp-2" : ""}`}>{d.content}</p>
+                            <p className={`whitespace-pre-wrap ${!isExpanded ? "line-clamp-2" : ""}`}>{d.content}</p>
                             <p className="text-[9px] text-accent mt-1.5 font-bold hover:underline">
                               {isExpanded ? "Show Less ▲" : "Click to Expand Message ▼"}
                             </p>
                           </div>
                         </td>
-                        <td className="text-xs text-zinc-500 italic max-w-xs">{d.reasoning || "—"}</td>
-                        <td className="text-[10px] text-zinc-400 whitespace-nowrap">{formatRelativeTime(d.createdAt)}</td>
-                        <td className="text-right">
+                        <td className="text-xs text-zinc-500 italic min-w-[220px] max-w-xs py-4 px-5 leading-normal">{d.reasoning || "—"}</td>
+                        <td className="text-[10px] text-zinc-400 whitespace-nowrap py-4 px-5">{formatRelativeTime(d.createdAt)}</td>
+                        <td className="text-right py-4 px-5">
                           <div className="flex gap-1 justify-end">
                             {d.status === "draft" && (
                               <>

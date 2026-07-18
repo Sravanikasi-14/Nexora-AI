@@ -190,16 +190,33 @@ function AuthForm() {
   }
 
   async function handleGoogleSuccess(credentialResponse: any) {
-    if (!credentialResponse.credential) return;
+    if (!credentialResponse.credential) {
+      setError("Google authentication returned no credentials. Please try again.");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      const res = await api.post<{ token: string; user: { id: string; name: string; email: string; passwordSetupRequired?: boolean } }>(
+      // Decode Google JWT to extract profile picture URL (no library needed)
+      let googlePicture: string | null = null;
+      try {
+        const payload = JSON.parse(atob(credentialResponse.credential.split(".")[1]));
+        googlePicture = payload.picture || null;
+      } catch {
+        // Non-critical; proceed without picture
+      }
+
+      const res = await api.post<{ token: string; user: { id: string; name: string; email: string; avatar?: string | null; passwordSetupRequired?: boolean } }>(
         "/api/auth/google",
         { idToken: credentialResponse.credential }
       );
       setToken(res.token);
-      setStoredUser(res.user);
+      // Merge Google profile picture into stored user if backend doesn't return one
+      const userToStore = {
+        ...res.user,
+        avatar: res.user.avatar || googlePicture || null,
+      };
+      setStoredUser(userToStore);
 
       if (res.user?.passwordSetupRequired) {
         router.push("/setup-password");
@@ -218,18 +235,18 @@ function AuthForm() {
         } else {
           router.push("/discovery");
         }
-      } catch (bizErr) {
+      } catch {
         router.push("/discovery");
       }
     } catch (err) {
-      setError((err as any)?.message || "Google authentication failed.");
+      setError((err as any)?.message || "Google authentication failed. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   function handleGoogleError() {
-    setError("Google Sign-In failed.");
+    setError("Google Sign-In was cancelled or failed. Please try again, or use email and password.");
   }
 
   if (checkingSession) {

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import { motion, useReducedMotion } from "framer-motion";
 
 function ResetPasswordForm() {
@@ -155,9 +156,9 @@ function ResetPasswordForm() {
         {error && <p className="text-xs text-red-500 font-semibold">{error}</p>}
         
         <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.01 }} whileTap={shouldReduceMotion ? {} : { scale: 0.99 }} className="w-full mt-2">
-          <button type="submit" disabled={loading || !isFormValid} className="btn-primary w-full h-9 text-xs hover:shadow-premium shadow-md">
-            {loading ? "Resetting password…" : "Reset Password"}
-          </button>
+          <Button type="submit" isLoading={loading} disabled={!isFormValid} className="w-full h-9 text-xs hover:shadow-premium shadow-md rounded-[18px] bg-gradient-to-r from-blue-600 to-indigo-600 border-0 font-bold text-white">
+            Reset Password
+          </Button>
         </motion.div>
       </form>
     </div>

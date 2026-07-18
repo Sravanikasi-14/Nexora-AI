@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/lib/useSession";
@@ -9,6 +9,7 @@ import { AssessmentResult } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/spinner";
 import { motion, useReducedMotion, animate } from "framer-motion";
 
 // Local AnimatedNumber component to animate rating scores
@@ -36,7 +37,7 @@ function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number; pr
   return <span>{prefix}{displayVal}{suffix}</span>;
 }
 
-function ScoreRing({ label, value, index }: { label: string; value: number | null | undefined; index: number }) {
+const ScoreRing = memo(function ScoreRing({ label, value, index }: { label: string; value: number | null | undefined; index: number }) {
   const shouldReduceMotion = useReducedMotion();
 
   return (
@@ -60,7 +61,7 @@ function ScoreRing({ label, value, index }: { label: string; value: number | nul
       </Card>
     </motion.div>
   );
-}
+});
 
 export default function AssessmentPage() {
   const router = useRouter();
@@ -79,9 +80,27 @@ export default function AssessmentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center gap-3 text-zinc-500">
-        <div className="w-8 h-8 border-2 border-zinc-900 dark:border-white border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-semibold">Running your Business Assessment…</p>
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50">
+        <div className="max-w-3xl mx-auto px-6 py-16 text-left space-y-8">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-9 w-2/3" />
+          </div>
+          <Card className="p-7 space-y-6 border border-zinc-200/40 dark:border-zinc-900/50 bg-white/40 dark:bg-zinc-950/60 backdrop-blur-xl rounded-[24px]">
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-4/5" />
+            
+            <div className="pt-4 space-y-3">
+              <Skeleton className="h-3.5 w-1/4" />
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-full rounded-[12px]" />
+                <Skeleton className="h-8 w-full rounded-[12px]" />
+                <Skeleton className="h-8 w-full rounded-[12px]" />
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
     );
   }

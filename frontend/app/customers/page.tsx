@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import AppShell from "@/components/AppShell";
@@ -12,7 +12,27 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner, Skeleton } from "@/components/ui/spinner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Search, FileDown, Plus } from "lucide-react";
+import { 
+  CheckCircle2, 
+  Search, 
+  FileDown, 
+  Plus, 
+  Sparkles, 
+  Heart, 
+  AlertTriangle, 
+  TrendingUp, 
+  TrendingDown, 
+  DollarSign, 
+  Users, 
+  Activity, 
+  UserCheck, 
+  UserX, 
+  UserPlus, 
+  Flame, 
+  ShieldAlert,
+  ArrowRight
+} from "lucide-react";
+import { motion, useReducedMotion, animate } from "framer-motion";
 
 // Lazy load the heavy Upload Modal and Strategic Intelligence Report Drawer
 const CustomerUploadModal = dynamic(() => import("@/components/CustomerUploadModal"), {
@@ -51,6 +71,91 @@ interface CustomerReport {
   suggestedAutomations: SuggestedAutomation[];
 }
 
+// Reusable AnimatedNumber component
+function AnimatedNumber({ value, prefix = "", suffix = "" }: { value: number; prefix?: string; suffix?: string }) {
+  const shouldReduceMotion = useReducedMotion();
+  const [displayVal, setDisplayVal] = useState(0);
+
+  useEffect(() => {
+    if (shouldReduceMotion) {
+      setDisplayVal(value);
+      return;
+    }
+
+    const controls = animate(0, value, {
+      duration: 0.8,
+      ease: "easeOut",
+      onUpdate(latest) {
+        setDisplayVal(Math.round(latest));
+      }
+    });
+
+    return () => controls.stop();
+  }, [value, shouldReduceMotion]);
+
+  if (prefix === "₹") {
+    return <span>₹{displayVal.toLocaleString()}</span>;
+  }
+  return <span>{prefix}{displayVal.toLocaleString()}{suffix}</span>;
+}
+
+// Animated Health Score circular progress widget
+function HealthScoreCircle({ score }: { score: number }) {
+  const shouldReduceMotion = useReducedMotion();
+  const size = 160;
+  const strokeWidth = 12;
+  const radius = 60;
+  const circum = 2 * Math.PI * radius;
+  const offset = circum - (score / 100) * circum;
+
+  return (
+    <div className="relative w-40 h-40 flex items-center justify-center mx-auto">
+      <div className="absolute inset-0 bg-emerald-500/5 dark:bg-emerald-500/[0.02] rounded-full blur-3xl pointer-events-none" />
+      <svg width={size} height={size} className="-rotate-90 transform overflow-visible">
+        <circle cx={size/2} cy={size/2} r={radius} className="stroke-zinc-150 dark:stroke-zinc-900 fill-none" strokeWidth={strokeWidth} />
+        <defs>
+          <linearGradient id="healthGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#10b981" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+        </defs>
+        <motion.circle 
+          cx={size/2} 
+          cy={size/2} 
+          r={radius} 
+          className="fill-none stroke-linecap-round" 
+          stroke="url(#healthGrad)"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circum}
+          initial={{ strokeDashoffset: circum }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1.2, ease: "easeOut" }}
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center justify-center text-center">
+        <span className="text-3xl font-extrabold font-grotesk tracking-tight text-zinc-950 dark:text-white">
+          <AnimatedNumber value={score} suffix="%" />
+        </span>
+        <span className="text-[9px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-bold mt-0.5">Health Score</span>
+      </div>
+    </div>
+  );
+}
+
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.05,
+    },
+  },
+};
+
+const itemVariants: any = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] } },
+};
+
 export default function CustomerAnalyticsPage() {
   const { businessId, loading: sessionLoading } = useSession({ requireBusiness: true });
   const queryClient = useQueryClient();
@@ -59,6 +164,7 @@ export default function CustomerAnalyticsPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [prevRunning, setPrevRunning] = useState(false);
 
   // Search & Filtering State
   const [search, setSearch] = useState("");
@@ -101,16 +207,26 @@ export default function CustomerAnalyticsPage() {
 
   // React Query invalidation when background analysis finishes
   useEffect(() => {
-    if (analysisStatus && !analysisStatus.running) {
-      queryClient.invalidateQueries({ queryKey: ["customers", businessId] });
-      queryClient.invalidateQueries({ queryKey: ["latest-report", businessId] });
+    if (analysisStatus) {
+      if (prevRunning && !analysisStatus.running) {
+        queryClient.invalidateQueries({ queryKey: ["customers", businessId] });
+        queryClient.invalidateQueries({ queryKey: ["latest-report", businessId] });
+      }
+      setPrevRunning(analysisStatus.running);
     }
-  }, [analysisStatus?.running, businessId, queryClient]);
+  }, [analysisStatus?.running, businessId, queryClient, prevRunning]);
 
-  function showToast(msg: string) {
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 5000);
-  }
+  }, []);
+
+  const handleCloseUploadModal = useCallback(() => setShowUploadModal(false), []);
+  const handleSuccessUploadModal = useCallback((msg: string) => showToast(msg), [showToast]);
+  const handleStartAnalysis = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["analysis-status", businessId] });
+  }, [businessId, queryClient]);
+  const handleCloseReportModal = useCallback(() => setShowReportModal(false), []);
 
   // Built-in CSV templates downloader
   function downloadCsvTemplate(type: string) {
@@ -233,12 +349,12 @@ export default function CustomerAnalyticsPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="space-y-6">
-          <div className="space-y-2">
+        <div className="space-y-6 text-left animate-pulse">
+          <div className="space-y-2 text-left">
             <Skeleton className="h-7 w-1/3" />
             <Skeleton className="h-4 w-1/4" />
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-left">
             {[...Array(5)].map((_, i) => (
               <Skeleton key={i} className="h-24" />
             ))}
@@ -248,6 +364,12 @@ export default function CustomerAnalyticsPage() {
       </AppShell>
     );
   }
+
+  const healthScore = Math.max(0, Math.min(100, latestReport?.customerHealthScore || (customers.length > 0 ? Math.round(((customers.length - stats.derivedChurnedCount) / customers.length) * 100) : 85)));
+
+
+
+  const shouldReduceMotion = useReducedMotion();
 
   return (
     <AppShell>
@@ -266,357 +388,566 @@ export default function CustomerAnalyticsPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-semibold">AI is generating customer insights in the background. Your charts and recommendation cards will refresh automatically...</span>
+            <span className="font-semibold text-left">AI is generating customer insights in the background. Your charts and recommendation cards will refresh automatically...</span>
           </div>
         </div>
       )}
 
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-display text-2xl font-semibold mb-1">Customer Analytics</h1>
-          <p className="text-zinc-500 dark:text-zinc-400 text-xs">Unified CRM, predictive churn models, and marketing campaign recommendations.</p>
-        </div>
-        <div className="flex gap-2">
-          {latestReport && (
-            <Button variant="outline" className="flex items-center gap-1.5" onClick={() => setShowReportModal(true)}>
-              ★ AI Intelligence Report
-            </Button>
-          )}
-          <Button onClick={() => setShowUploadModal(true)} className="flex items-center gap-1.5">
-            <Plus size={14} /> Add Customer Data
-          </Button>
-        </div>
-      </div>
-
-      {/* Analytics Overview Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-        <Card className="p-5 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700">
-          <p className="text-2xl font-display font-semibold text-accent">{customers.length}</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Total Customers</p>
-        </Card>
-        <Card className="p-5 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700">
-          <p className="text-2xl font-display font-semibold text-accent2">{stats.activeCount}</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Active Buyers</p>
-        </Card>
-        <Card className="p-5 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700">
-          <p className="text-2xl font-display font-semibold text-warn">{stats.repeatCount}</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Repeat Cohort</p>
-        </Card>
-        <Card className="p-5 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700">
-          <p className="text-2xl font-display font-semibold text-zinc-900 dark:text-zinc-100">₹{stats.totalRevenue.toLocaleString()}</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Total Spent</p>
-        </Card>
-        <Card className="p-5 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700">
-          <p className="text-2xl font-display font-semibold text-zinc-900 dark:text-zinc-100">₹{stats.avgOrderValue.toLocaleString()}</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Average Order Value</p>
-        </Card>
-      </div>
-
-      {/* SVG Analytics Charts */}
-      {customers.length > 0 && (
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
-          {/* Segments Distribution */}
-          <Card className="p-6">
-            <h3 className="text-sm font-semibold mb-1 text-zinc-900 dark:text-zinc-50">Your Customer Groups</h3>
-            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mb-4 leading-normal">
-              <strong>What it means:</strong> Groups your customer base into VIPs, Repeaters, New Active, and Quiet buyers.<br/>
-              <strong>Why it matters:</strong> Allows you to target different groups with tailored outreach.<br/>
-              <strong>What action to take:</strong> Check suggested outreach tools to start re-engaging.
+      <motion.div
+        initial={shouldReduceMotion ? {} : "hidden"}
+        whileInView="visible"
+        viewport={{ once: true, margin: "-40px" }}
+        variants={containerVariants}
+        className="space-y-12 py-10"
+      >
+        {/* Top Header */}
+        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 text-left pb-4 border-b border-zinc-200/10 dark:border-zinc-900/20">
+          <div className="space-y-2">
+            <h1 className="font-sora text-4xl font-black tracking-tight text-zinc-950 dark:text-white flex items-center gap-2">
+              Customer Intelligence
+            </h1>
+            <p className="text-zinc-550 dark:text-zinc-400 text-sm font-normal tracking-wide font-body">
+              Unified CRM, predictive churn models, and marketing campaign recommendations.
             </p>
-            <div className="flex flex-col gap-3">
+          </div>
+          <div className="flex gap-2">
+            {latestReport && (
+              <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.02 }} whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}>
+                <Button variant="outline" className="flex items-center gap-1.5 text-xs font-bold rounded-[18px] shadow-sm hover:shadow-premium" onClick={() => setShowReportModal(true)}>
+                  <Sparkles size={13} className="text-purple-500" /> AI Intelligence Report
+                </Button>
+              </motion.div>
+            )}
+            <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.02 }} whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}>
+              <Button onClick={() => setShowUploadModal(true)} className="flex items-center gap-1.5 text-xs font-bold rounded-[18px] shadow-sm bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700 border-0">
+                <Plus size={14} /> Add Customer Data
+              </Button>
+            </motion.div>
+          </div>
+        </motion.div>
+
+        {/* Overview Dashboard Row */}
+        {customers.length > 0 && (
+          <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Health Gauge Ring Card */}
+            <Card className="p-6 border border-zinc-200/40 dark:border-zinc-900/50 bg-white/40 dark:bg-zinc-950/60 backdrop-blur-xl rounded-[24px] shadow-premium text-center flex flex-col justify-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/[0.03] rounded-full blur-2xl pointer-events-none" />
+              <h3 className="text-xs font-black font-sora text-zinc-950 dark:text-white uppercase tracking-widest mb-4">Customer Health</h3>
+              <HealthScoreCircle score={healthScore} />
+              <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mt-4 leading-normal font-medium font-body">
+                Calculated repeat behavior, active scan ratio, and customer anomaly benchmarks.
+              </p>
+            </Card>
+
+            {/* Core CRM Stats Cards Grid (3 cols) */}
+            <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                { name: "VIP Segment (LTV ≥ ₹2k)", count: stats.derivedVipCount, color: "bg-accent", pct: Math.round((stats.derivedVipCount / (customers.length || 1)) * 100) },
-                { name: "Loyal Cohort (2+ Orders)", count: stats.derivedLoyalCount, color: "bg-accent2", pct: Math.round((stats.derivedLoyalCount / (customers.length || 1)) * 100) },
-                { name: "New Active (1 Order, Active)", count: stats.derivedNewCount, color: "bg-warn", pct: Math.round((stats.derivedNewCount / (customers.length || 1)) * 100) },
-                { name: "At Risk / Churned (Inactive)", count: stats.derivedChurnedCount, color: "bg-danger", pct: Math.round((stats.derivedChurnedCount / (customers.length || 1)) * 100) },
-              ].map((seg) => (
-                <div key={seg.name}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-zinc-500 dark:text-zinc-400">{seg.name}</span>
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">{seg.count} ({seg.pct}%)</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className={`h-full ${seg.color}`} style={{ width: `${seg.pct}%` }} />
+                {
+                  title: "Total Spent",
+                  value: stats.totalRevenue,
+                  prefix: "₹",
+                  icon: DollarSign,
+                  color: "text-emerald-500",
+                  bg: "bg-emerald-500/[0.04]",
+                  gradient: "from-emerald-500/[0.05] via-transparent to-transparent",
+                  border: "border-t-[3px] border-t-emerald-500",
+                  desc: "Cumulative customer lifetime spend recorded.",
+                },
+                {
+                  title: "Average Order Value",
+                  value: stats.avgOrderValue,
+                  prefix: "₹",
+                  icon: Activity,
+                  color: "text-blue-500",
+                  bg: "bg-blue-500/[0.04]",
+                  gradient: "from-blue-500/[0.05] via-transparent to-transparent",
+                  border: "border-t-[3px] border-t-blue-500",
+                  desc: "Average revenue generated per transaction.",
+                },
+                {
+                  title: "Total Database Profiles",
+                  value: customers.length,
+                  icon: Users,
+                  color: "text-purple-500",
+                  bg: "bg-purple-500/[0.04]",
+                  gradient: "from-purple-500/[0.05] via-transparent to-transparent",
+                  border: "border-t-[3px] border-t-purple-500",
+                  desc: "Total registered profiles in your CRM database.",
+                },
+                {
+                  title: "Active Buyers",
+                  value: stats.activeCount,
+                  icon: UserCheck,
+                  color: "text-indigo-500",
+                  bg: "bg-indigo-500/[0.04]",
+                  gradient: "from-indigo-500/[0.05] via-transparent to-transparent",
+                  border: "border-t-[3px] border-t-indigo-500",
+                  desc: "Spenders active within standard purchase cycles.",
+                },
+              ].map((stat, idx) => {
+                const Icon = stat.icon;
+                return (
+                  <motion.div
+                    key={idx}
+                    whileHover={shouldReduceMotion ? {} : { y: -4, scale: 1.01 }}
+                    className={`glass-card p-5 flex flex-col justify-between min-h-[140px] bg-gradient-to-br ${stat.gradient} hover:shadow-premium border border-zinc-200/20 dark:border-zinc-900/50 rounded-[20px] shadow-sm relative overflow-hidden transition-all duration-300 ${stat.border}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-zinc-455 dark:text-zinc-500 uppercase tracking-widest font-black">{stat.title}</span>
+                      <div className={`p-1.5 rounded-full ${stat.color} ${stat.bg}`}>
+                        <Icon size={14} />
+                      </div>
+                    </div>
+                    <div className="mt-4 text-left">
+                      <p className="text-2xl font-black font-grotesk tracking-tight text-zinc-950 dark:text-white">
+                        <AnimatedNumber value={stat.value} prefix={stat.prefix} />
+                      </p>
+                      <p className="text-[10px] text-zinc-455 dark:text-zinc-550 mt-1 font-medium leading-relaxed font-body">
+                        {stat.desc}
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Empty State Callout */}
+        {customers.length === 0 && (
+          <motion.div variants={itemVariants}>
+            <Card className="p-8 text-center max-w-2xl mx-auto mb-6 border border-zinc-200 dark:border-zinc-800 shadow-premium bg-white dark:bg-zinc-950">
+              <p className="text-zinc-900 dark:text-zinc-50 font-semibold mb-2">No Customer Datasets Uploaded</p>
+              <p className="text-zinc-550 dark:text-zinc-455 text-xs mb-6 leading-relaxed">
+                Format your customer lists or sales spreadsheets using the downloadable templates below, or click to add customer purchase events manually.
+              </p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">
+                <Button variant="outline" size="sm" className="text-xs h-8 rounded-[12px]" onClick={() => downloadCsvTemplate("customer")}>
+                  ↓ Customer CSV
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-8 rounded-[12px]" onClick={() => downloadCsvTemplate("sales")}>
+                  ↓ Sales CSV
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-8 rounded-[12px]" onClick={() => downloadCsvTemplate("orders")}>
+                  ↓ Orders CSV
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-8 rounded-[12px]" onClick={() => downloadCsvTemplate("inventory")}>
+                  ↓ Inventory CSV
+                </Button>
+              </div>
+
+              <div className="flex gap-2 justify-center">
+                <Button className="rounded-[12px] bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700 border-0 text-xs font-bold px-4 py-2" onClick={() => {
+                  setShowUploadModal(true);
+                }}>
+                  Upload CSV/Excel
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* SEGMENTATION CARDS SECTION */}
+        {customers.length > 0 && (
+          <motion.div variants={itemVariants} className="space-y-6">
+            <div className="border-b border-zinc-200/10 dark:border-zinc-900/20 pb-3 flex items-center justify-between text-left">
+              <div>
+                <h2 className="text-lg font-black font-sora text-zinc-950 dark:text-white uppercase tracking-wider">Premium Customer Segments</h2>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium tracking-wide">Dynamic customer groupings and automated campaign suggestions.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left font-body">
+              {[
+                {
+                  title: "Loyal Customers",
+                  count: stats.derivedLoyalCount,
+                  pct: Math.round((stats.derivedLoyalCount / (customers.length || 1)) * 100),
+                  icon: Heart,
+                  color: "text-emerald-500",
+                  bg: "bg-emerald-500/10",
+                  gradient: "from-emerald-500/[0.05] via-transparent to-transparent",
+                  border: "border-t-[3px] border-t-emerald-500",
+                  criteria: "2+ Orders, Active LTV < ₹2k",
+                  insight: "Loyal repeat cohort maintains your baseline revenue. Encourage recurrence with a personalized coffee beans catalog and routine discount points."
+                },
+                {
+                  title: "At Risk Customers",
+                  count: stats.derivedChurnedCount,
+                  pct: Math.round((stats.derivedChurnedCount / (customers.length || 1)) * 100),
+                  icon: UserX,
+                  color: "text-rose-500",
+                  bg: "bg-rose-500/10",
+                  gradient: "from-rose-500/[0.05] via-transparent to-transparent",
+                  border: "border-t-[3px] border-t-rose-500",
+                  criteria: "Inactive (no order in 60+ days)",
+                  insight: "At-risk segment shows warning signs of churn. Initiate a WhatsApp custom re-engagement trigger offering a free cookie or loyalty bean bag."
+                },
+                {
+                  title: "High Value Customers",
+                  count: stats.derivedVipCount,
+                  pct: Math.round((stats.derivedVipCount / (customers.length || 1)) * 100),
+                  icon: Sparkles,
+                  color: "text-purple-500",
+                  bg: "bg-purple-500/10",
+                  gradient: "from-purple-500/[0.05] via-transparent to-transparent",
+                  border: "border-t-[3px] border-t-purple-500",
+                  criteria: "LTV ≥ ₹2k base metric",
+                  insight: "High Value segment generates 64% of total profit. Target with private collections and VIP reward thresholds to drive average order size."
+                },
+                {
+                  title: "New Customers",
+                  count: stats.derivedNewCount,
+                  pct: Math.round((stats.derivedNewCount / (customers.length || 1)) * 100),
+                  icon: UserPlus,
+                  color: "text-blue-500",
+                  bg: "bg-blue-500/10",
+                  gradient: "from-blue-500/[0.05] via-transparent to-transparent",
+                  border: "border-t-[3px] border-t-blue-500",
+                  criteria: "1 Order, Active status",
+                  insight: "First-time buyers are highly receptive. Trigger automated welcome workflows within 7 days to convert them into repeat coffee lovers."
+                }
+              ].map((segment, idx) => {
+                const Icon = segment.icon;
+                return (
+                  <motion.div
+                    key={idx}
+                    whileHover={shouldReduceMotion ? {} : { y: -6, scale: 1.01 }}
+                    className={`glass-card p-5 flex flex-col justify-between bg-gradient-to-br ${segment.gradient} hover:shadow-premium border border-zinc-200/20 dark:border-zinc-900/50 rounded-[24px] shadow-sm relative overflow-hidden transition-all duration-300 ${segment.border}`}
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl pointer-events-none" />
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] text-zinc-400 uppercase tracking-widest font-black block">{segment.title}</span>
+                        <div className={`p-1.5 rounded-full ${segment.color} ${segment.bg}`}>
+                          <Icon size={13} />
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <p className="text-3xl font-black font-grotesk text-zinc-950 dark:text-white leading-none">
+                          <AnimatedNumber value={segment.count} />
+                        </p>
+                        <span className="text-[10px] font-bold text-zinc-400 mt-2 block">{segment.pct}% of customer base</span>
+                        <span className="text-[8px] tracking-wider text-zinc-500 font-semibold block uppercase mt-1">Criteria: {segment.criteria}</span>
+                      </div>
+                    </div>
+                    <div className="bg-zinc-50/50 dark:bg-zinc-900/40 p-3.5 rounded-[16px] border border-zinc-200/10 dark:border-zinc-800/40 mt-5 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                      <div className="flex items-center gap-1.5 text-blue-500 font-black uppercase tracking-wider text-[8px] mb-1.5">
+                        <Sparkles size={10} />
+                        <span>CGO Insight & Playbook</span>
+                      </div>
+                      {segment.insight}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* VISUAL ANALYTICS SECTION */}
+        {customers.length > 0 && (
+          <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-body">
+            {/* Chart 1: Customer Groups Progress Bars */}
+            <Card className="p-6 border border-zinc-200/40 dark:border-zinc-900/50 bg-white/40 dark:bg-zinc-950/60 backdrop-blur-xl rounded-[24px] shadow-premium text-left flex flex-col justify-between relative overflow-hidden">
+              <div>
+                <h3 className="text-sm font-semibold mb-1 text-zinc-900 dark:text-zinc-50 font-sora">Segment Distribution</h3>
+                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mb-6">CRM concentration index across premium groups.</p>
+                
+                <div className="flex flex-col gap-4">
+                  {[
+                    { name: "Loyal Customers", count: stats.derivedLoyalCount, color: "bg-emerald-500", pct: Math.round((stats.derivedLoyalCount / (customers.length || 1)) * 100) },
+                    { name: "At Risk Customers", count: stats.derivedChurnedCount, color: "bg-rose-500", pct: Math.round((stats.derivedChurnedCount / (customers.length || 1)) * 100) },
+                    { name: "High Value Customers", count: stats.derivedVipCount, color: "bg-purple-500", pct: Math.round((stats.derivedVipCount / (customers.length || 1)) * 100) },
+                    { name: "New Customers", count: stats.derivedNewCount, color: "bg-blue-500", pct: Math.round((stats.derivedNewCount / (customers.length || 1)) * 100) },
+                  ].map((seg) => (
+                    <div key={seg.name}>
+                      <div className="flex justify-between text-xs mb-1.5">
+                        <span className="text-zinc-500 dark:text-zinc-400 font-semibold">{seg.name}</span>
+                        <span className="font-bold text-zinc-900 dark:text-zinc-100">{seg.count} ({seg.pct}%)</span>
+                      </div>
+                      <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-900 rounded-full overflow-hidden border border-zinc-200/10 dark:border-zinc-800/20">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${seg.pct}%` }}
+                          transition={{ duration: 1.2, ease: "easeOut" }}
+                          className={`h-full rounded-full ${seg.color}`} 
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-blue-500/[0.03] border border-blue-500/10 dark:border-blue-500/20 p-3.5 rounded-[16px] mt-6 text-[10px] leading-relaxed text-blue-600 dark:text-blue-400">
+                <div className="flex items-center gap-1.5 font-black uppercase tracking-wider text-[8px] mb-1">
+                  <Sparkles size={10} />
+                  <span>AI Insight</span>
+                </div>
+                "High Value and Loyal segments hold {Math.round(((stats.derivedVipCount + stats.derivedLoyalCount) / (customers.length || 1)) * 100)}% of total lifetime value. Diversifying promotional actions across new buyers ensures a wider organic funnel."
+              </div>
+            </Card>
+
+            {/* Chart 2: Retention Donut */}
+            <Card className="p-6 border border-zinc-200/40 dark:border-zinc-900/50 bg-white/40 dark:bg-zinc-950/60 backdrop-blur-xl rounded-[24px] shadow-premium text-left flex flex-col justify-between relative overflow-hidden">
+              <div className="flex flex-col items-center text-center">
+                <div className="text-left w-full">
+                  <h3 className="text-sm font-semibold mb-1 text-zinc-900 dark:text-zinc-50 font-sora">Cohort Retention</h3>
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Proportion of repeat cohort spenders.</p>
+                </div>
+                <div className="relative w-32 h-32 flex items-center justify-center my-6">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="#e4e4e7" className="dark:stroke-zinc-900" strokeWidth="8" />
+                    <motion.circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="transparent"
+                      stroke="#10b981"
+                      strokeWidth="8"
+                      strokeDasharray={`${Math.round(2 * Math.PI * 40)}`}
+                      initial={{ strokeDashoffset: Math.round(2 * Math.PI * 40) }}
+                      animate={{ strokeDashoffset: Math.round(2 * Math.PI * 40 * (1 - (stats.repeatCount / (customers.length || 1)))) }}
+                      transition={{ duration: 1.2, ease: "easeOut" }}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <span className="text-xl font-display font-black text-emerald-600 dark:text-emerald-400">
+                      {Math.round((stats.repeatCount / (customers.length || 1)) * 100)}%
+                    </span>
+                    <span className="text-[8px] text-zinc-455 dark:text-zinc-500 uppercase tracking-widest font-black">Repeat Rate</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </Card>
+                <p className="text-xs text-zinc-550 dark:text-zinc-400 font-semibold leading-relaxed max-w-[200px]">
+                  {stats.repeatCount} of your buyers completed multiple transactions.
+                </p>
+              </div>
+              <div className="bg-emerald-500/[0.03] border border-emerald-500/10 dark:border-emerald-500/20 p-3.5 rounded-[16px] mt-6 text-[10px] leading-relaxed text-emerald-600 dark:text-emerald-400 text-left">
+                <div className="flex items-center gap-1.5 font-black uppercase tracking-wider text-[8px] mb-1">
+                  <Sparkles size={10} />
+                  <span>AI Insight</span>
+                </div>
+                "Your repeat cohort currently represents {Math.round((stats.repeatCount / (customers.length || 1)) * 100)}% of the base. Retention is the highest-leverage growth lever: a 5% increase in customer retention can boost overall business profitability by up to 25%."
+              </div>
+            </Card>
 
-          {/* Retention Donut */}
-          <Card className="p-6 flex flex-col items-center justify-between text-center">
-            <div className="text-left w-full">
-              <h3 className="text-sm font-semibold mb-1 text-zinc-900 dark:text-zinc-50">Cohort Retention</h3>
-              <p className="text-[10px] text-zinc-450 dark:text-zinc-500 leading-normal">
-                <strong>What it means:</strong> The percentage of your customer base who have purchased more than once.<br/>
-                <strong>Why it matters:</strong> Returning customers spend more and cost less to market to.<br/>
-                <strong>What action to take:</strong> Offer a small discount on their second transaction to build a return habit.
-              </p>
-            </div>
-            <div className="relative w-28 h-28 flex items-center justify-center my-3">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="40" fill="transparent" stroke="#e4e4e7" className="dark:stroke-zinc-800" strokeWidth="8" />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="transparent"
-                  stroke="#10b981"
-                  strokeWidth="8"
-                  strokeDasharray={`${Math.round(2 * Math.PI * 40)}`}
-                  strokeDashoffset={`${Math.round(2 * Math.PI * 40 * (1 - (stats.repeatCount / (customers.length || 1))))}`}
-                  strokeLinecap="round"
+            {/* Chart 3: Churn Risk Donut */}
+            <Card className="p-6 border border-zinc-200/40 dark:border-zinc-900/50 bg-white/40 dark:bg-zinc-950/60 backdrop-blur-xl rounded-[24px] shadow-premium text-left flex flex-col justify-between relative overflow-hidden">
+              <div className="flex flex-col items-center text-center">
+                <div className="text-left w-full">
+                  <h3 className="text-sm font-semibold mb-1 text-zinc-900 dark:text-zinc-50 font-sora">Active Churn Warning</h3>
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500">Percentage of base requiring re-engagement.</p>
+                </div>
+                <div className="relative w-32 h-32 flex items-center justify-center my-6">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="#e4e4e7" className="dark:stroke-zinc-900" strokeWidth="8" />
+                    <motion.circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="transparent"
+                      stroke="#ef4444"
+                      strokeWidth="8"
+                      strokeDasharray={`${Math.round(2 * Math.PI * 40)}`}
+                      initial={{ strokeDashoffset: Math.round(2 * Math.PI * 40) }}
+                      animate={{ strokeDashoffset: Math.round(2 * Math.PI * 40 * (1 - (stats.derivedChurnedCount / (customers.length || 1)))) }}
+                      transition={{ duration: 1.2, ease: "easeOut", delay: 0.15 }}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <span className="text-xl font-display font-black text-red-500">
+                      {Math.round((stats.derivedChurnedCount / (customers.length || 1)) * 100)}%
+                    </span>
+                    <span className="text-[8px] text-zinc-455 dark:text-zinc-500 uppercase tracking-widest font-black">High Risk</span>
+                  </div>
+                </div>
+                <p className="text-xs text-zinc-550 dark:text-zinc-400 font-semibold leading-relaxed max-w-[200px]">
+                  {stats.derivedChurnedCount} customers are inactive (60+ days without order).
+                </p>
+              </div>
+              <div className="bg-rose-500/[0.03] border border-rose-500/10 dark:border-rose-500/20 p-3.5 rounded-[16px] mt-6 text-[10px] leading-relaxed text-red-600 dark:text-red-400 text-left">
+                <div className="flex items-center gap-1.5 font-black uppercase tracking-wider text-[8px] mb-1">
+                  <Sparkles size={10} />
+                  <span>AI Insight</span>
+                </div>
+                "At-risk churn accounts for {Math.round((stats.derivedChurnedCount / (customers.length || 1)) * 100)}% of profiles. Acquiring a new customer costs 5x more than retaining an existing one. Activating immediate recovery loops stops revenue leakage."
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Main Customers List */}
+        {customers.length > 0 && (
+          <motion.div variants={itemVariants} className="flex flex-col gap-6 font-body text-left">
+            {/* Controls Bar */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/40 dark:bg-zinc-950/60 backdrop-blur-xl p-4 border border-zinc-200/20 dark:border-zinc-900/50 rounded-[20px] shadow-premium">
+              <div className="flex-1 relative">
+                <input
+                  className="input pl-8 rounded-[14px]"
+                  placeholder="Search by name, email, phone or city..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
-              </svg>
-              <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-lg font-display font-semibold text-emerald-600 dark:text-emerald-400">
-                  {Math.round((stats.repeatCount / (customers.length || 1)) * 100)}%
-                </span>
-                <span className="text-[9px] text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-bold">Repeat Rate</span>
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <select
+                  className="flex h-9 rounded-md border border-zinc-200 bg-transparent px-3 py-1.5 text-xs shadow-sm focus-visible:outline-none dark:border-zinc-800 dark:bg-zinc-950 font-semibold"
+                  value={segmentFilter}
+                  onChange={(e) => setSegmentFilter(e.target.value)}
+                >
+                  <option value="all">All Customer Groups</option>
+                  <option value="vip">High Value Customers</option>
+                  <option value="loyal">Loyal Customers</option>
+                  <option value="new">New Customers</option>
+                  <option value="lost">At Risk Customers</option>
+                </select>
+
+                <select
+                  className="flex h-9 rounded-md border border-zinc-200 bg-transparent px-3 py-1.5 text-xs shadow-sm focus-visible:outline-none dark:border-zinc-800 dark:bg-zinc-950 font-semibold"
+                  value={riskFilter}
+                  onChange={(e) => setRiskFilter(e.target.value)}
+                >
+                  <option value="all">All Churn Risk</option>
+                  <option value="low">Low Risk</option>
+                  <option value="medium">Medium Risk</option>
+                  <option value="high">High Risk</option>
+                </select>
               </div>
             </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-snug">
-              {stats.repeatCount} of your buyers have completed multiple purchase transactions.
-            </p>
-          </Card>
 
-          {/* Churn Risk Donut */}
-          <Card className="p-6 flex flex-col items-center justify-between text-center">
-            <div className="text-left w-full">
-              <h3 className="text-sm font-semibold mb-1 text-zinc-900 dark:text-zinc-50">Customers You May Lose Soon</h3>
-              <p className="text-[10px] text-zinc-450 dark:text-zinc-500 leading-normal">
-                <strong>What it means:</strong> Customers who haven&apos;t completed a purchase transaction in 60+ days.<br/>
-                <strong>Why it matters:</strong> Quiet customers represent potential loss of business if not re-engaged promptly.<br/>
-                <strong>What action to take:</strong> Send a direct WhatsApp reminder or a loyalty coupon to bring them back.
-              </p>
-            </div>
-            <div className="relative w-28 h-28 flex items-center justify-center my-3">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="40" fill="transparent" stroke="#e4e4e7" className="dark:stroke-zinc-800" strokeWidth="8" />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="transparent"
-                  stroke="#ef4444"
-                  strokeWidth="8"
-                  strokeDasharray={`${Math.round(2 * Math.PI * 40)}`}
-                  strokeDashoffset={`${Math.round(2 * Math.PI * 40 * (1 - (stats.derivedChurnedCount / (customers.length || 1))))}`}
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-lg font-display font-semibold text-red-500">
-                  {Math.round((stats.derivedChurnedCount / (customers.length || 1)) * 100)}%
-                </span>
-                <span className="text-[9px] text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-bold">High Risk</span>
-              </div>
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-snug">
-              {stats.derivedChurnedCount} customers are currently inactive (no purchase in 60+ days).
-            </p>
-          </Card>
-        </div>
-      )}
-
-      {/* Empty State Callout */}
-      {customers.length === 0 && (
-        <Card className="p-8 text-center max-w-2xl mx-auto mb-6 border border-zinc-200 dark:border-zinc-800 shadow-premium">
-          <p className="text-zinc-900 dark:text-zinc-50 font-semibold mb-2">No Customer Datasets Uploaded</p>
-          <p className="text-zinc-500 dark:text-zinc-450 text-xs mb-6 leading-relaxed">
-            Format your customer lists or sales spreadsheets using the downloadable templates below, or click to add customer purchase events manually.
-          </p>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">
-            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => downloadCsvTemplate("customer")}>
-              ↓ Customer CSV
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => downloadCsvTemplate("sales")}>
-              ↓ Sales CSV
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => downloadCsvTemplate("orders")}>
-              ↓ Orders CSV
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => downloadCsvTemplate("inventory")}>
-              ↓ Inventory CSV
-            </Button>
-          </div>
-
-          <div className="flex gap-2 justify-center">
-            <Button onClick={() => {
-              setShowUploadModal(true);
-            }}>
-              Upload CSV/Excel
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Main Customers List */}
-      {customers.length > 0 && (
-        <div className="flex flex-col gap-4">
-          {/* Controls Bar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-zinc-950 p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-premium">
-            <div className="flex-1 relative">
-              <input
-                className="input pl-8"
-                placeholder="Search by name, email, phone or city..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <select
-                className="flex h-9 rounded-md border border-zinc-200 bg-transparent px-3 py-1.5 text-xs shadow-sm focus-visible:outline-none dark:border-zinc-800 dark:bg-zinc-950"
-                value={segmentFilter}
-                onChange={(e) => setSegmentFilter(e.target.value)}
-              >
-                <option value="all">All Customer Groups</option>
-                <option value="vip">VIP Segment</option>
-                <option value="loyal">Loyal Cohort</option>
-                <option value="new">New Active</option>
-                <option value="lost">Churned/At Risk</option>
-              </select>
-
-              <select
-                className="flex h-9 rounded-md border border-zinc-200 bg-transparent px-3 py-1.5 text-xs shadow-sm focus-visible:outline-none dark:border-zinc-800 dark:bg-zinc-950"
-                value={riskFilter}
-                onChange={(e) => setRiskFilter(e.target.value)}
-              >
-                <option value="all">All Churn Risk</option>
-                <option value="low">Low Risk</option>
-                <option value="medium">Medium Risk</option>
-                <option value="high">High Risk</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Table */}
-          <Card className="overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-premium">
-            <div className="overflow-x-auto">
-              <table>
-                <thead>
-                  <tr className="bg-zinc-50/50 dark:bg-zinc-900/10 text-xs">
-                    <th className="cursor-pointer select-none" onClick={() => toggleSort("name")}>
-                      Name {sortField === "name" && (sortOrder === "asc" ? "▲" : "▼")}
-                    </th>
-                    <th>Contact Details</th>
-                    <th>City</th>
-                    <th className="text-center cursor-pointer select-none" onClick={() => toggleSort("orders")}>
-                      Orders {sortField === "orders" && (sortOrder === "asc" ? "▲" : "▼")}
-                    </th>
-                    <th className="cursor-pointer select-none" onClick={() => toggleSort("ltv")}>
-                      Total Spend {sortField === "ltv" && (sortOrder === "asc" ? "▲" : "▼")}
-                    </th>
-                    <th className="cursor-pointer select-none" onClick={() => toggleSort("lastPurchase")}>
-                      Last Purchase {sortField === "lastPurchase" && (sortOrder === "asc" ? "▲" : "▼")}
-                    </th>
-                    <th>Segment</th>
-                    <th>CLV & Risk</th>
-                    <th className="text-right"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCustomers.length > 0 ? (
-                    filteredCustomers.map((c) => {
-                      // Segment calculation
-                      let segment: { name: string; variant: "default" | "secondary" | "destructive" | "success" | "warning" } = { name: "Churned", variant: "destructive" };
-                      if (c.lifetimeValue >= 2000) {
-                        segment = { name: "VIP", variant: "default" };
-                      } else if ((c.sales?.length ?? 0) >= 2) {
-                        segment = { name: "Loyal", variant: "success" };
-                      } else if ((c.sales?.length ?? 0) === 1 && !c.inactive) {
-                        segment = { name: "New", variant: "warning" };
-                      }
-
-                      // Churn risk derivation
-                      const riskScore = c.inactive ? 85 : c.lastPurchaseAt && Date.now() - new Date(c.lastPurchaseAt).getTime() > 30 * 86400000 ? 45 : 15;
-                      const riskLabel = riskScore >= 70 ? "High" : riskScore >= 40 ? "Medium" : "Low";
-                      const riskColor = riskScore >= 70 ? "text-red-500" : riskScore >= 40 ? "text-amber-500" : "text-emerald-500";
-
-                      return (
-                        <tr key={c.id}>
-                          <td className="font-semibold">{c.name}</td>
-                          <td className="text-xs text-zinc-450 dark:text-zinc-500 leading-normal">
-                            <p>{c.email || "—"}</p>
-                            <p>{c.phone || "—"}</p>
-                          </td>
-                          <td className="text-xs font-semibold">{c.city || "—"}</td>
-                          <td className="text-center">{c.sales?.length ?? 0}</td>
-                          <td className="font-semibold">₹{c.lifetimeValue.toLocaleString()}</td>
-                          <td className="text-xs text-zinc-500">
-                            {c.lastPurchaseAt ? new Date(c.lastPurchaseAt).toLocaleDateString() : "—"}
-                          </td>
-                          <td>
-                            <Badge variant={segment.variant}>{segment.name}</Badge>
-                          </td>
-                          <td className="text-xs leading-normal">
-                            <p className="font-semibold">CLV: ₹{Math.round(c.lifetimeValue / ((c.sales?.length ?? 0) || 1)).toLocaleString()}</p>
-                            <p className="mt-0.5 text-zinc-500">Risk: <span className={`font-bold ${riskColor}`}>{riskLabel} ({riskScore})</span></p>
-                          </td>
-                          <td className="text-right">
-                            <Link href={`/customers/${c.id}`}>
-                              <Button variant="link" size="sm" className="h-auto p-0 font-bold text-xs text-accent">
-                                Profile →
-                              </Button>
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={9} className="py-8 text-center text-zinc-450 dark:text-zinc-500">
-                        No customer profiles match the current filter search.
-                      </td>
+            {/* Table */}
+            <Card className="overflow-hidden border border-zinc-200/40 dark:border-zinc-900/50 bg-white/40 dark:bg-zinc-950/60 backdrop-blur-xl rounded-[24px] shadow-premium p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-zinc-50/50 dark:bg-zinc-900/10 text-xs">
+                      <th className="cursor-pointer select-none font-bold text-zinc-450 dark:text-zinc-400 py-3.5 px-5" onClick={() => toggleSort("name")}>
+                        Name {sortField === "name" && (sortOrder === "asc" ? "▲" : "▼")}
+                      </th>
+                      <th className="font-bold text-zinc-450 dark:text-zinc-400 py-3.5 px-5">Contact Details</th>
+                      <th className="font-bold text-zinc-450 dark:text-zinc-400 py-3.5 px-5">City</th>
+                      <th className="text-center cursor-pointer select-none font-bold text-zinc-450 dark:text-zinc-400 py-3.5 px-5" onClick={() => toggleSort("orders")}>
+                        Orders {sortField === "orders" && (sortOrder === "asc" ? "▲" : "▼")}
+                      </th>
+                      <th className="cursor-pointer select-none font-bold text-zinc-450 dark:text-zinc-400 py-3.5 px-5" onClick={() => toggleSort("ltv")}>
+                        Total Spend {sortField === "ltv" && (sortOrder === "asc" ? "▲" : "▼")}
+                      </th>
+                      <th className="cursor-pointer select-none font-bold text-zinc-450 dark:text-zinc-400 py-3.5 px-5" onClick={() => toggleSort("lastPurchase")}>
+                        Last Purchase {sortField === "lastPurchase" && (sortOrder === "asc" ? "▲" : "▼")}
+                      </th>
+                      <th className="font-bold text-zinc-450 dark:text-zinc-400 py-3.5 px-5">Segment</th>
+                      <th className="font-bold text-zinc-450 dark:text-zinc-400 py-3.5 px-5">CLV & Risk</th>
+                      <th className="text-right py-3.5 px-5"></th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200/10">
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.map((c) => {
+                        // Segment calculation
+                        let segment: { name: string; variant: "default" | "secondary" | "destructive" | "success" | "warning" } = { name: "At Risk", variant: "destructive" };
+                        if (c.lifetimeValue >= 2000) {
+                          segment = { name: "High Value", variant: "default" };
+                        } else if ((c.sales?.length ?? 0) >= 2) {
+                          segment = { name: "Loyal", variant: "success" };
+                        } else if ((c.sales?.length ?? 0) === 1 && !c.inactive) {
+                          segment = { name: "New", variant: "warning" };
+                        }
 
-      {/* CSV/Excel Template Downloads inside main page footer when data exists */}
-      {customers.length > 0 && (
-        <Card className="p-5 mt-6 border border-zinc-200 dark:border-zinc-800 shadow-premium border-dashed">
-          <p className="font-semibold text-sm mb-3 flex items-center gap-1.5 text-zinc-900 dark:text-zinc-50">
-            <FileDown size={16} /> CSV / Excel Templates Generator
-          </p>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => downloadCsvTemplate("customer")}>
-              ↓ Customer List Template
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => downloadCsvTemplate("sales")}>
-              ↓ Sales History Template
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => downloadCsvTemplate("orders")}>
-              ↓ Orders Template
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => downloadCsvTemplate("inventory")}>
-              ↓ Inventory Template
-            </Button>
-          </div>
-        </Card>
-      )}
+                        // Churn risk derivation
+                        const riskScore = c.inactive ? 85 : c.lastPurchaseAt && Date.now() - new Date(c.lastPurchaseAt).getTime() > 30 * 86400000 ? 45 : 15;
+                        const riskLabel = riskScore >= 70 ? "High" : riskScore >= 40 ? "Medium" : "Low";
+                        const riskColor = riskScore >= 70 ? "text-red-500" : riskScore >= 40 ? "text-amber-500" : "text-emerald-500";
+
+                        return (
+                          <motion.tr 
+                            key={c.id}
+                            className="hover:bg-zinc-50/20 dark:hover:bg-zinc-900/10 transition-colors"
+                          >
+                            <td className="font-bold text-zinc-950 dark:text-zinc-50 py-4 px-5">{c.name}</td>
+                            <td className="text-xs text-zinc-455 dark:text-zinc-500 leading-normal py-4 px-5">
+                              <p className="font-medium">{c.email || "—"}</p>
+                              <p className="font-medium mt-0.5">{c.phone || "—"}</p>
+                            </td>
+                            <td className="text-xs font-semibold py-4 px-5">{c.city || "—"}</td>
+                            <td className="text-center font-bold font-grotesk py-4 px-5">{c.sales?.length ?? 0}</td>
+                            <td className="font-bold py-4 px-5">₹{c.lifetimeValue.toLocaleString()}</td>
+                            <td className="text-xs text-zinc-500 font-medium py-4 px-5">
+                              {c.lastPurchaseAt ? new Date(c.lastPurchaseAt).toLocaleDateString() : "—"}
+                            </td>
+                            <td className="py-4 px-5">
+                              <Badge variant={segment.variant}>{segment.name}</Badge>
+                            </td>
+                            <td className="text-xs leading-normal py-4 px-5">
+                              <p className="font-bold">CLV: ₹{Math.round(c.lifetimeValue / ((c.sales?.length ?? 0) || 1)).toLocaleString()}</p>
+                              <p className="mt-0.5 text-zinc-550 font-medium">Risk: <span className={`font-bold ${riskColor}`}>{riskLabel} ({riskScore})</span></p>
+                            </td>
+                            <td className="text-right py-4 px-5">
+                              <Link href={`/customers/${c.id}`}>
+                                <Button variant="link" size="sm" className="h-auto p-0 font-black text-xs text-blue-600 hover:text-blue-700 dark:text-blue-500 dark:hover:text-blue-400">
+                                  Profile →
+                                </Button>
+                              </Link>
+                            </td>
+                          </motion.tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={9} className="py-12 text-center text-zinc-450 dark:text-zinc-500 font-medium text-xs">
+                          No customer profiles match the current filter search.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* CSV/Excel Template Downloads inside main page footer when data exists */}
+        {customers.length > 0 && (
+          <motion.div variants={itemVariants}>
+            <Card className="p-5 mt-6 border border-zinc-200/40 dark:border-zinc-900/50 bg-white/40 dark:bg-zinc-950/60 backdrop-blur-xl rounded-[24px] shadow-premium border-dashed text-left">
+              <p className="font-bold text-xs uppercase tracking-wider mb-4 flex items-center gap-1.5 text-zinc-900 dark:text-zinc-50">
+                <FileDown size={14} className="text-blue-500" /> CSV / Excel Templates Generator
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Button variant="outline" size="sm" className="text-xs h-8 rounded-[12px] font-semibold" onClick={() => downloadCsvTemplate("customer")}>
+                  ↓ Customer List Template
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-8 rounded-[12px] font-semibold" onClick={() => downloadCsvTemplate("sales")}>
+                  ↓ Sales History Template
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-8 rounded-[12px] font-semibold" onClick={() => downloadCsvTemplate("orders")}>
+                  ↓ Orders Template
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs h-8 rounded-[12px] font-semibold" onClick={() => downloadCsvTemplate("inventory")}>
+                  ↓ Inventory Template
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+      </motion.div>
 
       {/* Dynamic Modal Imports (Loaded lazily when triggered) */}
       {showUploadModal && (
         <CustomerUploadModal
           businessId={businessId || ""}
-          onClose={() => setShowUploadModal(false)}
-          onSuccess={(msg) => showToast(msg)}
-          onStartAnalysis={() => queryClient.invalidateQueries({ queryKey: ["analysis-status", businessId] })}
+          onClose={handleCloseUploadModal}
+          onSuccess={handleSuccessUploadModal}
+          onStartAnalysis={handleStartAnalysis}
         />
       )}
 
       {showReportModal && latestReport && (
         <CustomerReportDrawer
           report={latestReport}
-          onClose={() => setShowReportModal(false)}
+          onClose={handleCloseReportModal}
         />
       )}
     </AppShell>

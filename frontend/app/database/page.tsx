@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import AppShell from "@/components/AppShell";
 import { useSession } from "@/lib/useSession";
 import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
-import { Spinner } from "@/components/ui/spinner";
+import { Spinner, Skeleton } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -38,9 +38,33 @@ export default function DatabasePage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex flex-col items-center justify-center min-h-[400px] text-zinc-500">
-          <Spinner size="lg" />
-          <p className="text-xs mt-3">Fetching raw database tables…</p>
+        <div className="space-y-8 text-left py-6">
+          <div className="space-y-2">
+            <h1 className="font-display text-4xl font-black tracking-tight text-zinc-900 dark:text-white">
+              System Database
+            </h1>
+            <p className="text-zinc-550 dark:text-zinc-400 text-xs">Inspect raw CRM data and table metrics directly.</p>
+          </div>
+          <div className="flex gap-2.5">
+            <Skeleton className="h-8 w-28 rounded-[12px]" />
+            <Skeleton className="h-8 w-28 rounded-[12px]" />
+            <Skeleton className="h-8 w-28 rounded-[12px]" />
+          </div>
+          <Card className="p-0 overflow-hidden border border-zinc-200/40 dark:border-zinc-900/50 bg-white/40 dark:bg-zinc-950/60 backdrop-blur-xl rounded-[24px]">
+            <div className="p-5 border-b border-zinc-200/10 dark:border-zinc-800/40">
+              <Skeleton className="h-6 w-1/4" />
+            </div>
+            <div className="p-5 space-y-4">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex gap-4 items-center">
+                  <Skeleton className="h-8 flex-1 rounded-[12px]" />
+                  <Skeleton className="h-8 flex-1 rounded-[12px]" />
+                  <Skeleton className="h-8 flex-1 rounded-[12px]" />
+                  <Skeleton className="h-8 flex-1 rounded-[12px]" />
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
       </AppShell>
     );
@@ -65,8 +89,9 @@ export default function DatabasePage() {
     );
   }
 
-  // Filter content by search query
-  const getFilteredData = () => {
+  // Filter content by search query using memoization
+  const filtered = useMemo(() => {
+    if (!data) return [];
     const q = searchQuery.toLowerCase().trim();
     if (!q) {
       if (activeTab === "customers") return data.customers;
@@ -107,9 +132,7 @@ export default function DatabasePage() {
       );
     }
     return [];
-  };
-
-  const filtered = getFilteredData();
+  }, [data, activeTab, searchQuery]);
 
   return (
     <AppShell>

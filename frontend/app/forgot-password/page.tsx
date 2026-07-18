@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import { motion, useReducedMotion } from "framer-motion";
 
 export default function ForgotPasswordPage() {
@@ -79,9 +80,9 @@ export default function ForgotPasswordPage() {
               {error && <p className="text-xs text-red-500 font-semibold">{error}</p>}
               
               <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.01 }} whileTap={shouldReduceMotion ? {} : { scale: 0.99 }} className="w-full mt-2">
-                <button type="submit" disabled={loading} className="btn-primary w-full h-9 text-xs hover:shadow-premium shadow-md">
-                  {loading ? "Sending reset link…" : "Send Reset Link"}
-                </button>
+                <Button type="submit" isLoading={loading} className="w-full h-9 text-xs hover:shadow-premium shadow-md rounded-[18px] bg-gradient-to-r from-blue-600 to-indigo-600 border-0 font-bold text-white">
+                  Send Reset Link
+                </Button>
               </motion.div>
               
               <div className="text-center mt-2">
