@@ -13,10 +13,7 @@ let googleClient: OAuth2Client | null = null;
 
 function getGoogleClient() {
   if (!googleClient) {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      throw new Error("GOOGLE_CLIENT_ID is not configured in backend environment variables.");
-    }
+    const clientId = process.env.GOOGLE_CLIENT_ID || "232240441584-aduvejnrs9vq97kertqe279q267o03tn.apps.googleusercontent.com";
     googleClient = new OAuth2Client(clientId);
   }
   return googleClient;
@@ -24,9 +21,14 @@ function getGoogleClient() {
 
 async function verifyGoogleIdToken(idToken: string) {
   const client = getGoogleClient();
+  const allowedAudiences = [
+    process.env.GOOGLE_CLIENT_ID,
+    "232240441584-aduvejnrs9vq97kertqe279q267o03tn.apps.googleusercontent.com"
+  ].filter((id): id is string => typeof id === "string" && id.length > 0);
+
   const ticket = await client.verifyIdToken({
     idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
+    audience: allowedAudiences,
   });
   const payload = ticket.getPayload();
   if (!payload) throw new Error("Invalid token payload");

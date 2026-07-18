@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, setToken, setBusinessId, setStoredUser, getStoredUser, getBusinessId } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
+import Logo from "@/components/brand/Logo";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -161,10 +162,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile Sticky Header */}
       <header className="md:hidden flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 z-30 sticky top-0">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center font-display font-bold text-white dark:text-zinc-900 text-sm shadow">
-            N
-          </div>
-          <span className="font-display font-semibold text-base tracking-tight">Nexora</span>
+          <Logo iconSize={30} />
         </Link>
         <button
           onClick={() => setSidebarOpen(true)}
@@ -194,10 +192,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Header container inside Sidebar */}
         <div className="flex items-center justify-between md:block px-1.5 py-1">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-[8px] bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center font-display font-extrabold text-white text-xs shadow-md shadow-blue-500/20">
-              N
-            </div>
-            <span className="font-display font-bold text-xs tracking-wider text-zinc-800 dark:text-zinc-200 uppercase">Nexora</span>
+            <Logo iconSize={32} />
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}

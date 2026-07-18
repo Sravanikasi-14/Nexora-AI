@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
+import Logo from "@/components/brand/Logo";
 import {
   TrendingUp,
   Sparkles,
@@ -293,12 +294,7 @@ export default function LandingPage() {
       >
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center font-display font-bold text-white dark:text-zinc-900 text-sm shadow">
-              N
-            </div>
-            <span className="font-display font-bold text-base tracking-tight text-white group-hover:text-accent transition duration-300">
-              Nexora
-            </span>
+            <Logo iconSize={30} showSubtitle={true} />
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -950,10 +946,7 @@ export default function LandingPage() {
       <footer className="border-t border-zinc-900 bg-[#030303] py-14 relative z-10 text-left">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center font-display font-bold text-white shadow">
-              N
-            </div>
-            <span className="font-display font-bold text-base text-white">Nexora</span>
+            <Logo iconSize={30} showSubtitle={true} />
           </div>
 
           <div className="flex items-center gap-6 text-[10px] font-bold uppercase tracking-wider text-zinc-500">

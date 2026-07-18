@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { motion, useReducedMotion } from "framer-motion";
+import Logo from "@/components/brand/Logo";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -177,14 +178,7 @@ export default function ResetPasswordPage() {
         className="w-full max-w-sm"
       >
         <Link href="/" className="flex items-center gap-2 justify-center mb-8">
-          <motion.div
-            whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
-            whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
-            className="w-8 h-8 rounded bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center font-display font-bold text-white dark:text-zinc-900 text-sm shadow"
-          >
-            N
-          </motion.div>
-          <span className="font-display font-semibold text-lg tracking-tight">Nexora</span>
+          <Logo iconSize={32} showSubtitle={true} />
         </Link>
 
         <Suspense fallback={

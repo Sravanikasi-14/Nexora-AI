@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { api, setToken, setStoredUser, setBusinessId } from "@/lib/api";
+import Logo from "@/components/brand/Logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -268,14 +269,7 @@ function AuthForm() {
           className="w-full max-w-sm"
         >
           <Link href="/" className="flex items-center gap-2 justify-center mb-8">
-            <motion.div
-              whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
-              whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}
-              className="w-8 h-8 rounded bg-zinc-900 dark:bg-zinc-50 flex items-center justify-center font-display font-bold text-white dark:text-zinc-900 text-sm shadow"
-            >
-              N
-            </motion.div>
-            <span className="font-display font-semibold text-lg tracking-tight">Nexora</span>
+            <Logo iconSize={32} showSubtitle={true} />
           </Link>
 
           {/* Selector Tabs */}
