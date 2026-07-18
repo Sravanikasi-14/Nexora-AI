@@ -231,7 +231,7 @@ export default function DatabasePage() {
                         <TableCell className="font-semibold text-xs">{c.name}</TableCell>
                         <TableCell className="text-xs">{c.email || "—"}</TableCell>
                         <TableCell className="text-xs">{c.phone || "—"}</TableCell>
-                        <TableCell className="font-mono font-bold text-xs">₹{c.lifetimeValue.toLocaleString()}</TableCell>
+                        <TableCell className="font-mono font-bold text-xs">₹{(c.lifetimeValue || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-xs">{c.lastPurchaseAt ? new Date(c.lastPurchaseAt).toLocaleDateString() : "—"}</TableCell>
                         <TableCell className="text-xs text-zinc-450">{new Date(c.createdAt).toLocaleDateString()}</TableCell>
                       </TableRow>

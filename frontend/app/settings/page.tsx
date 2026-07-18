@@ -290,11 +290,11 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4 bg-zinc-50 dark:bg-zinc-900/40 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
                   {currentUser?.avatar ? (
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-base ${currentUser.avatar}`}>
-                      {currentUser.name?.charAt(0).toUpperCase()}
+                      {(currentUser.name?.charAt(0) || "B").toUpperCase()}
                     </div>
                   ) : (
                     <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center font-bold text-base">
-                      {currentUser?.name?.charAt(0).toUpperCase() || "B"}
+                      {(currentUser?.name?.charAt(0) || "B").toUpperCase()}
                     </div>
                   )}
                   <div>

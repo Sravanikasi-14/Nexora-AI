@@ -342,10 +342,10 @@ export default function CustomerDetailPage() {
 
   const getHighlightedContent = (content: string) => {
     if (!customer) return content;
-    const firstName = customer.name.split(" ")[0];
-    const namePart = customer.name;
-    const ltvStr = customer.lifetimeValue.toString();
-    const ltvFormatted = customer.lifetimeValue.toLocaleString();
+    const firstName = (customer.name || "Customer").split(" ")[0];
+    const namePart = customer.name || "Customer";
+    const ltvStr = (customer.lifetimeValue || 0).toString();
+    const ltvFormatted = (customer.lifetimeValue || 0).toLocaleString();
     const daysStr = daysSinceLastPurchase?.toString() || "0";
 
     const escapeHtml = (text: string) => {
@@ -476,7 +476,7 @@ export default function CustomerDetailPage() {
       {/* Profile Overview Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         <Card className="p-4 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700">
-          <p className="text-lg font-display font-semibold text-accent">₹{customer.lifetimeValue.toLocaleString()}</p>
+          <p className="text-lg font-display font-semibold text-accent">₹{(customer.lifetimeValue || 0).toLocaleString()}</p>
           <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Lifetime Value (CLV)</p>
         </Card>
         <Card className="p-4 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700">
@@ -484,7 +484,7 @@ export default function CustomerDetailPage() {
           <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Total Purchases</p>
         </Card>
         <Card className="p-4 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700">
-          <p className="text-lg font-display font-semibold text-accent2">₹{avgOrderValue.toLocaleString()}</p>
+          <p className="text-lg font-display font-semibold text-accent2">₹{(avgOrderValue || 0).toLocaleString()}</p>
           <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1 font-medium">Average Order (AOV)</p>
         </Card>
         <Card className="p-4 flex flex-col justify-between hover:border-zinc-300 dark:hover:border-zinc-700">
@@ -884,7 +884,7 @@ export default function CustomerDetailPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500">💰 Lifetime Value</span>
-                    <span className="font-semibold text-emerald-600 underline decoration-emerald-500 decoration-2">₹{customer.lifetimeValue.toLocaleString()}</span>
+                    <span className="font-semibold text-emerald-600 underline decoration-emerald-500 decoration-2">₹{(customer.lifetimeValue || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500">📅 Last Purchase</span>

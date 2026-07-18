@@ -873,7 +873,7 @@ export default function CustomerAnalyticsPage() {
                             </td>
                             <td className="text-xs font-semibold py-4 px-5">{c.city || "—"}</td>
                             <td className="text-center font-bold font-grotesk py-4 px-5">{c.sales?.length ?? 0}</td>
-                            <td className="font-bold py-4 px-5">₹{c.lifetimeValue.toLocaleString()}</td>
+                            <td className="font-bold py-4 px-5">₹{(c.lifetimeValue || 0).toLocaleString()}</td>
                             <td className="text-xs text-zinc-500 font-medium py-4 px-5">
                               {c.lastPurchaseAt ? new Date(c.lastPurchaseAt).toLocaleDateString() : "—"}
                             </td>
@@ -881,7 +881,7 @@ export default function CustomerAnalyticsPage() {
                               <Badge variant={segment.variant}>{segment.name}</Badge>
                             </td>
                             <td className="text-xs leading-normal py-4 px-5">
-                              <p className="font-bold">CLV: ₹{Math.round(c.lifetimeValue / ((c.sales?.length ?? 0) || 1)).toLocaleString()}</p>
+                              <p className="font-bold">CLV: ₹{Math.round((c.lifetimeValue || 0) / ((c.sales?.length ?? 0) || 1)).toLocaleString()}</p>
                               <p className="mt-0.5 text-zinc-550 font-medium">Risk: <span className={`font-bold ${riskColor}`}>{riskLabel} ({riskScore})</span></p>
                             </td>
                             <td className="text-right py-4 px-5">

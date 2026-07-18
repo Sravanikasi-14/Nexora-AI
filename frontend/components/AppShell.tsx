@@ -264,11 +264,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               ) : user?.avatar ? (
                 // Color gradient avatar (password sign-up users)
                 <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center font-bold text-white text-[10px] shadow-sm ${user.avatar}`}>
-                  {user.name?.charAt(0).toUpperCase()}
+                  {(user.name?.charAt(0) || "B").toUpperCase()}
                 </div>
               ) : (
                 <div className="w-6 h-6 rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border border-zinc-250 dark:border-zinc-800 shrink-0 flex items-center justify-center font-bold text-[10px] shadow-sm">
-                  {user?.name?.charAt(0).toUpperCase() || "B"}
+                  {(user?.name?.charAt(0) || "B").toUpperCase()}
                 </div>
               )}
               <div className="min-w-0 flex-1">

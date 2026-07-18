@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { motion, useReducedMotion } from "framer-motion";
 
-const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "232240441584-aduvejnrs9vq97kertqe279q267o03tn.apps.googleusercontent.com";
 
 function AuthForm() {
   const router = useRouter();
